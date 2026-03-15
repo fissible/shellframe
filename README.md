@@ -165,6 +165,30 @@ See [`examples/confirm.sh`](examples/confirm.sh) for a complete demo.
 
 ---
 
+### `src/widgets/alert.sh`
+
+**`clui_alert <title> [detail ...]`**
+
+Centered informational modal. Shows a bold `title` heading and optional
+plain-text `detail` lines. Any keypress dismisses it. Always returns 0.
+
+| Key | Action |
+|---|---|
+| Any key | Dismiss |
+
+```bash
+clui_alert "Deploy complete" \
+    "web-server    restarted" \
+    "cache         flushed"
+
+echo "Back in the shell."
+```
+
+See [`examples/alert.sh`](examples/alert.sh) for a complete demo.
+
+
+---
+
 ## Recommended TUI skeleton
 
 ```bash
@@ -424,11 +448,13 @@ clui/
 │   ├── draw.sh      # clui_pad_left, color constants
 │   └── widgets/
 │       ├── action-list.sh  # interactive action-list widget
-│       └── confirm.sh      # modal yes/no confirmation dialog
+│       ├── confirm.sh      # modal yes/no confirmation dialog
+│       └── alert.sh        # modal informational dialog (dismiss-only)
 ├── examples/
 │   ├── list-select.sh      # single-select list demo
 │   ├── action-list.sh      # action-list widget demo
-│   └── confirm.sh          # confirm modal demo
+│   ├── confirm.sh          # confirm modal demo
+│   └── alert.sh            # alert modal demo
 └── tests/
     ├── assert.sh            # test assertion helpers
     ├── pty_run.py           # PTY-based integration test runner
@@ -443,6 +469,7 @@ clui/
     └── integration/
         ├── test-list-select.sh   # PTY tests for list-select example
         ├── test-action-list.sh   # PTY tests for action-list widget
-        └── test-confirm.sh       # PTY tests for confirm modal
+        ├── test-confirm.sh       # PTY tests for confirm modal
+        └── test-alert.sh         # PTY tests for alert modal
 ```
 
