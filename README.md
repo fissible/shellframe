@@ -51,7 +51,7 @@ working interactive list selector.
 | `CLUI_KEY_DOWN` | `\x1b[B` | Down arrow |
 | `CLUI_KEY_RIGHT` | `\x1b[C` | Right arrow |
 | `CLUI_KEY_LEFT` | `\x1b[D` | Left arrow |
-| `CLUI_KEY_ENTER` | `\r` | Enter / Return |
+| `CLUI_KEY_ENTER` | `\n` | Enter / Return (bash converts `\r`→`\n` internally) |
 | `CLUI_KEY_SPACE` | ` ` | Space |
 | `CLUI_KEY_ESC` | `\x1b` | Standalone Escape |
 
@@ -60,6 +60,8 @@ working interactive list selector.
 Reads one keypress (including full escape sequences) into `$varname`.
 Call inside a `clui_raw_enter` session. Compare results against the
 `CLUI_KEY_*` constants using `[[ "$key" == "$CLUI_KEY_UP" ]]`.
+Uses `read -d ''` (NUL delimiter) so Enter (`\n`) is captured rather
+than consumed as the line terminator (see Lesson 7 in Hard-won Lessons).
 
 ### `src/draw.sh`
 
@@ -77,6 +79,41 @@ printf '%b' "$(clui_pad_left "$raw" "$rendered" 20)"
 
 Color constants `CLUI_BOLD`, `CLUI_RESET`, `CLUI_GREEN`, `CLUI_RED`,
 `CLUI_PURPLE`, `CLUI_GRAY`, `CLUI_WHITE` are set via `tput` at source time.
+
+### `src/widgets/action-list.sh`
+
+**`clui_action_list [draw_row_fn] [extra_key_fn] [footer_text]`**
+
+Full-screen interactive list where each row has a set of named actions the
+user cycles through. Returns 0 on confirm, 1 on quit.
+
+**Caller sets globals before calling:**
+
+| Global | Description |
+|---|---|
+| `CLUI_AL_LABELS[@]` | Display label per row |
+| `CLUI_AL_ACTIONS[@]` | Space-separated action list per row (e.g. `"nothing install"`) |
+| `CLUI_AL_IDX[@]` | Current action index per row (init to 0) |
+| `CLUI_AL_META[@]` | Optional per-row metadata string passed to callbacks |
+
+**Widget sets globals (readable from callbacks):**
+
+| Global | Description |
+|---|---|
+| `CLUI_AL_SELECTED` | Index of the currently highlighted row |
+| `CLUI_AL_SAVED_STTY` | Saved stty state — use with `clui_raw_exit` in `extra_key_fn` |
+
+**Built-in key bindings:** `↑`/`↓` move, `Space`/`→` cycle action, `Enter`/`c` confirm, `q` quit.
+
+**draw_row_fn** signature: `draw_row_fn "$i" "$label" "$acts_str" "$aidx" "$meta"`
+Must print one complete line (with `\n`). `CLUI_AL_SELECTED` is set globally.
+
+**extra_key_fn** signature: `extra_key_fn "$key"`
+Called for unhandled keys. Return 0=handled+redraw, 1=not handled, 2=quit.
+Use `CLUI_AL_SAVED_STTY` to suspend the TUI (e.g. to run a pager).
+
+See [`examples/action-list.sh`](examples/action-list.sh) for a complete demo.
+
 
 ---
 
@@ -232,7 +269,33 @@ printf "%-20b" "${CLUI_GREEN}hello${CLUI_RESET}"
 printf '%b' "$(clui_pad_left "hello" "${CLUI_GREEN}hello${CLUI_RESET}" 20)"
 ```
 
-### 7. Command substitution `$()` pipes stdout away from the terminal
+### 7. bash `read` converts `\r` to `\n` internally — use `read -d ''` for Enter
+
+Even with `stty -icrnl` set (so the PTY line discipline does NOT translate
+CR→LF), bash's own `read` builtin converts `\r` (0x0D) to `\n` (0x0A) before
+storing the result. The consequence:
+
+- `IFS= read -r -n1 key` with default `\n` delimiter: `\r` → `\n` → delimiter
+  → `key` is empty (the delimiter is consumed, not stored).
+- The fix is `read -d ''` (NUL delimiter), so `\n` is not the stop character
+  and is captured as the key value.
+- Set `CLUI_KEY_ENTER=$'\n'`, not `$'\r'`.
+
+```bash
+# ✗ — Enter becomes the delimiter; key is always empty on Enter
+IFS= read -r -n1 key
+[[ "$key" == $'\r' ]]  # never matches
+
+# ✓ — NUL delimiter; \n (from bash's \r→\n conversion) is stored in key
+IFS= read -r -n1 -d '' key
+[[ "$key" == $'\n' ]]  # matches Enter
+```
+
+This was verified empirically: `dd` correctly receives `\r` from the PTY
+(confirming `-icrnl` works), but bash's `read` returns `\n`. The behavior
+holds on bash 3.2 (macOS) in both PTY and real-terminal contexts.
+
+### 8. Command substitution `$()` pipes stdout away from the terminal
 
 Calling a TUI function as `result=$(my_tui)` creates a subshell where stdout
 is a pipe, not the terminal. All `printf` screen output silently disappears
@@ -243,14 +306,14 @@ then restore the original stdout before printing the return value.
 
 ```bash
 my_tui() {
-    local _orig_stdout
-    exec {_orig_stdout}>&1
+    # Use fixed fd 3; {varname} fd allocation requires bash 4.1+ (macOS has 3.2)
+    exec 3>&1
     exec 1>/dev/tty          # TUI output goes to the real terminal
 
     # ... screen enter, draw loop, input loop ...
 
-    exec 1>&$_orig_stdout    # restore so the result is captured by $()
-    exec {_orig_stdout}>&-
+    exec 1>&3                # restore so the result is captured by $()
+    exec 3>&-
 
     printf '%s\n' "$result"  # this reaches the $() caller
 }
@@ -268,7 +331,20 @@ clui/
 ├── src/
 │   ├── screen.sh    # alternate screen, cursor, stty
 │   ├── input.sh     # key reading + CLUI_KEY_* constants
-│   └── draw.sh      # clui_pad_left, color constants
-└── examples/
-    └── list-select.sh   # interactive single-select demo
+│   ├── draw.sh      # clui_pad_left, color constants
+│   └── widgets/
+│       └── action-list.sh  # interactive action-list widget
+├── examples/
+│   ├── list-select.sh      # single-select list demo
+│   └── action-list.sh      # action-list widget demo
+└── tests/
+    ├── assert.sh            # test assertion helpers
+    ├── pty_run.py           # PTY-based integration test runner
+    ├── run.sh               # test runner (discovers test-*.sh)
+    ├── unit/
+    │   └── test-draw.sh     # unit tests for clui_pad_left
+    └── integration/
+        ├── test-list-select.sh   # PTY tests for list-select example
+        └── test-action-list.sh   # PTY tests for action-list example
 ```
+
