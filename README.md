@@ -68,8 +68,12 @@ working interactive list selector.
 | Module | Provides |
 |---|---|
 | `src/screen.sh` | Alternate screen, cursor show/hide, raw mode, stty save/restore |
-| `src/input.sh` | `shellframe_read_key`, `SHELLFRAME_KEY_*` constants |
+| `src/input.sh` | `shellframe_read_key`, `SHELLFRAME_KEY_*` constants (arrows, Tab, Shift-Tab, Ctrl combos, PgUp/Dn, Home, End, Delete) |
 | `src/draw.sh` | `shellframe_pad_left`, color constants |
+| `src/clip.sh` | `shellframe_str_clip`, `shellframe_str_clip_ellipsis`, `shellframe_str_pad`, `shellframe_str_len` — ANSI-aware string measurement and clipping |
+| `src/selection.sh` | Cursor + multi-select state model for list widgets (`shellframe_sel_*`) |
+| `src/keymap.sh` | Canonical key name lookup (`shellframe_keyname`), named action keymaps (`shellframe_keymap_bind/lookup`), default nav/edit keymaps |
+| `src/cursor.sh` | Text cursor model for input fields — insert, delete, move, word-jump, kill ops (`shellframe_cur_*`) |
 | `src/widgets/action-list.sh` | Full-screen interactive action list |
 | `src/widgets/table.sh` | Full-page navigable table with headers, page chrome, scroll, and optional below-area |
 | `src/widgets/confirm.sh` | Modal yes/no dialog |
@@ -98,6 +102,10 @@ shellframe/
 │   ├── screen.sh          # alternate screen, cursor, stty
 │   ├── input.sh           # key reading + SHELLFRAME_KEY_* constants
 │   ├── draw.sh            # shellframe_pad_left, color constants
+│   ├── clip.sh            # ANSI-aware string measurement and clipping
+│   ├── selection.sh       # cursor + multi-select state model (shellframe_sel_*)
+│   ├── keymap.sh          # key name lookup + named action keymaps
+│   ├── cursor.sh          # text cursor model for input fields (shellframe_cur_*)
 │   ├── app.sh             # shellframe_app — declarative screen FSM runtime
 │   └── widgets/
 │       ├── action-list.sh # interactive action-list widget
