@@ -152,7 +152,7 @@ _Last updated: 2026-03-15_
   - `src/input.sh` extended: 14 key constants and 4-byte ESC sequence support in `shellframe_read_key`
   - `src/keymap.sh`: `shellframe_keyname`, `shellframe_keymap_bind/lookup`, `shellframe_keymap_default_nav/edit`
   - `src/cursor.sh`: full text cursor model — init, move, insert, backspace, delete, kill ops
-- Phase 3 complete: #8 text, #9 panel, #10 scroll, #11 list, #12 input-field, #13 tab-bar (352/352 assertions)
+- Phase 3 complete: #8 text, #9 panel, #10 scroll, #11 list, #12 input-field, #13 tab-bar (330/330 assertions across 11 test files)
   - All are v2 composable components (render/on_key/on_focus/size contract)
   - `src/text.sh`: `_shellframe_text_align`, `_shellframe_text_wrap_words`, `shellframe_text_render`, `shellframe_text_size`
   - `src/scroll.sh`: context-keyed V+H scroll state, `shellframe_scroll_move/ensure_row/ensure_col/resize`
@@ -161,4 +161,5 @@ _Last updated: 2026-03-15_
   - `src/widgets/input-field.sh`: single-line edit using cursor.sh, all standard edit keys, mask mode
   - `src/widgets/list.sh`: scrollable list using selection.sh + scroll.sh, optional multiselect
   - Key decisions: `shellframe_sel_move ctx down` always moves 1 step (page_size only applies to page_up/page_down); field scroll is computed at render time from cursor position
+- **ptyunit open-source repo created** (https://github.com/fissible/ptyunit): PROJECT.md and README.md committed; 11 GitHub issues created for the full extraction plan. New unit tests written in shellframe can continue using local `tests/assert.sh` — migration to ptyunit is a mechanical rename when Phase 1 of ptyunit is done.
 - **Next session: Phase 3 remaining — #14 Modal/dialog (deps: #3 focus, #9 panel). Phase 4 app shell (#18) follows. All deps for both are now satisfied.**
