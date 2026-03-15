@@ -24,10 +24,10 @@ Widgets are built from primitives, not monoliths.
 shellframe should cover the full lifecycle of gathering and using input from humans:
 
 - **Input gathering**: prompts, free-text fields, password fields, confirmations
-- **Selection**: single-select lists, multi-select lists, action-lists
+- **Selection**: single-select lists, multi-select lists, action-lists, navigable tables
 - **Feedback**: progress bars, spinners, status lines, banners
 - **Navigation**: paged lists, tabbed views, modal dialogs
-- **Output**: formatted tables, colored text, column layout
+- **Output**: formatted tables with page chrome (header bar, h1, footer bar), colored text, column layout
 
 Every widget maps directly to a data shape: a list widget yields an array index,
 a prompt yields a string, a multi-select yields a set of flags. The caller gets
@@ -96,6 +96,9 @@ version is a bug. The matrix must pass before merging changes to `src/`.
 - Internal helpers are prefixed `_shellframe_` and must not be called by consumers.
 - `shellframe_app` context globals are prefixed `_SHELLFRAME_APP_` and are reset before each
   screen render. Application state belongs in caller-defined globals, not here.
+- Table widget globals are prefixed `SHELLFRAME_TBL_`. `SHELLFRAME_TBL_SCROLL` is the only
+  table global intentionally NOT reset by `shellframe_app` — reset it in your render hook
+  when loading new data so the list starts at the top.
 - Use `local` for all function-scoped variables. Never pollute the caller's scope.
 - Use `printf` for all output; never bare `echo` (behavior varies across systems).
 - For bash 3.2 compatibility:

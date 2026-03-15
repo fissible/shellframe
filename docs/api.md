@@ -94,6 +94,87 @@ See [`examples/action-list.sh`](../examples/action-list.sh) for a complete demo.
 
 ---
 
+## `src/widgets/table.sh`
+
+**`shellframe_table [draw_row_fn] [extra_key_fn] [footer_text]`**
+
+Full-page navigable table widget with column headers, full-height/full-width layout,
+vertical scroll, optional page chrome (header bar, h1 title, footer bar), and an
+optional below-hint area for inline contextual content.
+Returns 0 on confirm, 1 on quit.
+
+### Table data globals
+
+Caller sets before calling `shellframe_table` (or in a `render()` hook for `shellframe_app`):
+
+| Global | Description |
+|---|---|
+| `SHELLFRAME_TBL_LABELS[@]` | Primary display label per row |
+| `SHELLFRAME_TBL_ACTIONS[@]` | Space-separated available actions per row (e.g. `"nothing install"`) |
+| `SHELLFRAME_TBL_IDX[@]` | Current action index per row (caller initialises to 0) |
+| `SHELLFRAME_TBL_META[@]` | (Optional) per-row metadata string passed verbatim to callbacks |
+| `SHELLFRAME_TBL_HEADERS[@]` | Column header labels (plain text); empty disables the header row |
+| `SHELLFRAME_TBL_COL_WIDTHS[@]` | Visible character width per column; columns are left-aligned |
+
+### Page chrome globals
+
+| Global | Description |
+|---|---|
+| `SHELLFRAME_TBL_PAGE_TITLE` | Header bar text — reverse-video, bold, full-width, row 1. Empty = no header. |
+| `SHELLFRAME_TBL_PAGE_H1` | Content area h1 title — bold white, row 2. Empty = no h1. |
+| `SHELLFRAME_TBL_PAGE_FOOTER` | Footer bar text — gray, full-width, pinned to bottom row. Empty = no footer. |
+
+When `PAGE_TITLE` or `PAGE_H1` is set, rows 1-3 are occupied (header, h1, separator) and
+data starts at row 4. When `PAGE_FOOTER` is set, the last two rows are the footer separator
+and footer bar, and the content area shrinks accordingly.
+
+### Panel and below-hint globals
+
+| Global | Description |
+|---|---|
+| `SHELLFRAME_TBL_PANEL_FN` | Right-panel callback: `fn top_row left_col width height`. Splits the content area 50/50. Suppressed if the terminal is too narrow for a 20-column panel. Empty = full-width table. |
+| `SHELLFRAME_TBL_BELOW_FN` | Below-hint callback: `fn first_row left_col cols height`. Called below the keyboard hint, separated by a thin `─` rule. Empty = no below area. |
+| `SHELLFRAME_TBL_BELOW_ROWS` | Number of content rows to reserve for `SHELLFRAME_TBL_BELOW_FN`. Must be ≥ 1 to activate the below area. |
+
+### State globals (readable from callbacks)
+
+| Global | Description |
+|---|---|
+| `SHELLFRAME_TBL_SELECTED` | Index of the currently highlighted row |
+| `SHELLFRAME_TBL_SCROLL` | First visible row index (vertical scroll offset). NOT reset by `shellframe_app` — set it to 0 in your render hook when loading new data. |
+| `SHELLFRAME_TBL_SAVED_STTY` | Saved stty state — use with `shellframe_raw_exit` in `extra_key_fn` to temporarily suspend the TUI |
+
+**Built-in key bindings:** `↑`/`↓` move, `Space`/`→` cycle action, `Enter`/`c` confirm, `q` quit.
+
+**draw_row_fn** signature: `draw_row_fn "$i" "$label" "$acts_str" "$aidx" "$meta"`
+Called once per visible row. The cursor is pre-positioned at `(row, 1)` and the line is
+erased with `\033[2K`. Print one line of content. `SHELLFRAME_TBL_SELECTED` is set globally.
+
+**extra_key_fn** signature: `extra_key_fn "$key"`
+Called for unhandled keys. Return 0 = handled (redraw), 1 = not handled, 2 = quit requested.
+Use `SHELLFRAME_TBL_SAVED_STTY` to suspend the TUI (e.g. to run a pager).
+
+**draw_row_fn / extra_key_fn** within `shellframe_app`: pass callback names via
+`_SHELLFRAME_APP_DRAW_FN` and `_SHELLFRAME_APP_KEY_FN` in your render hook.
+
+### Layout diagram (all chrome enabled)
+
+```
+Row 1         : ██ PAGE_TITLE ██████████████████████████  ← reverse-video header bar
+Row 2         :    PAGE_H1                                 ← bold h1
+Row 3         :  ─────────────────────────────────────    ← separator
+Rows 4..N-4   :    [col headers]                          ← if HEADERS set (+2 rows)
+               :    data row 0
+               :    data row 1
+               :    ...
+Row N-3       :    ↑/↓ move  Space cycle  Enter confirm   ← keyboard hint
+Row N-2       :  ──────────────────────────────────────   ← below separator (if BELOW_FN)
+Row N-1 (sep) :  ─────────────────────────────────────    ← separator above footer
+Row N         : ░ PAGE_FOOTER ░░░░░░░░░░░░░░░░░░░░░░░░░  ← gray footer bar
+```
+
+---
+
 ## `src/widgets/confirm.sh`
 
 **`shellframe_confirm <question> [detail ...]`**
@@ -164,7 +245,7 @@ chosen prefix):
 
 | Function | How it outputs | Purpose |
 |---|---|---|
-| `PREFIX_FOO_type()` | `printf` | One of: `action-list` \| `confirm` \| `alert` — called in a subshell, do not modify globals |
+| `PREFIX_FOO_type()` | `printf` | One of: `action-list` \| `table` \| `confirm` \| `alert` — called in a subshell, do not modify globals |
 | `PREFIX_FOO_render()` | *(assigns globals)* | Populate widget context globals; called directly, safe to mutate state |
 | `PREFIX_FOO_EVENT()` | `_SHELLFRAME_APP_NEXT=` | Set `_SHELLFRAME_APP_NEXT` to next screen name; called directly, safe to mutate state |
 
@@ -173,6 +254,7 @@ chosen prefix):
 | Widget | rc=0 event | rc=1 event |
 |---|---|---|
 | `action-list` | `confirm` | `quit` |
+| `table` | `confirm` | `quit` |
 | `confirm` | `yes` | `no` |
 | `alert` | `dismiss` | — |
 
@@ -192,12 +274,24 @@ Set these in your `render()` hook. They are reset to empty before every
 
 | Global | Widget | Purpose |
 |---|---|---|
-| `_SHELLFRAME_APP_DRAW_FN` | `action-list` | Row renderer callback name (empty → built-in default) |
-| `_SHELLFRAME_APP_KEY_FN` | `action-list` | Extra key handler callback name (empty → none) |
-| `_SHELLFRAME_APP_HINT` | `action-list` | Footer hint text (empty → built-in default) |
+| `_SHELLFRAME_APP_DRAW_FN` | `action-list` / `table` | Row renderer callback name (empty → built-in default) |
+| `_SHELLFRAME_APP_KEY_FN` | `action-list` / `table` | Extra key handler callback name (empty → none) |
+| `_SHELLFRAME_APP_HINT` | `action-list` / `table` | Footer hint text (empty → built-in default) |
 | `_SHELLFRAME_APP_QUESTION` | `confirm` | Question text |
 | `_SHELLFRAME_APP_TITLE` | `alert` | Title text |
 | `_SHELLFRAME_APP_DETAILS` | `confirm` + `alert` | Array of detail lines |
+| `SHELLFRAME_TBL_HEADERS[@]` | `table` | Column header labels |
+| `SHELLFRAME_TBL_COL_WIDTHS[@]` | `table` | Visible width per column |
+| `SHELLFRAME_TBL_PAGE_TITLE` | `table` | Header bar text |
+| `SHELLFRAME_TBL_PAGE_H1` | `table` | H1 content title |
+| `SHELLFRAME_TBL_PAGE_FOOTER` | `table` | Footer bar text (pinned to terminal bottom) |
+| `SHELLFRAME_TBL_PANEL_FN` | `table` | Right-panel callback (50/50 split) |
+| `SHELLFRAME_TBL_BELOW_FN` | `table` | Below-hint callback |
+| `SHELLFRAME_TBL_BELOW_ROWS` | `table` | Content rows reserved for below-hint area |
+
+> **Note:** `SHELLFRAME_TBL_SCROLL` is intentionally NOT reset by `shellframe_app` between
+> screens so scroll position is preserved across FSM transitions. Reset it to `0` in your
+> `render()` hook when loading new data.
 
 ### Application context
 

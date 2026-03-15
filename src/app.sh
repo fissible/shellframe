@@ -12,7 +12,7 @@
 # A screen is a named state.  For each screen FOO, define these functions
 # (replace PREFIX and FOO with your values):
 #
-#   PREFIX_FOO_type()      — print the widget type: action-list | confirm | alert
+#   PREFIX_FOO_type()      — print the widget type: action-list | table | confirm | alert
 #                            (called in a subshell — do not modify globals here)
 #   PREFIX_FOO_render()    — populate widget context globals before the widget runs
 #   PREFIX_FOO_EVENT()     — set _SHELLFRAME_APP_NEXT to the next screen name, or __QUIT__
@@ -20,6 +20,7 @@
 #
 # Events per widget type:
 #   action-list  →  confirm (Enter)   |  quit (q)
+#   table        →  confirm (Enter)   |  quit (q)
 #   confirm      →  yes    (Y/Enter)  |  no   (N/Esc/q)
 #   alert        →  dismiss (any key)
 #
@@ -29,10 +30,19 @@
 #
 # ── Widget context globals (set in render hooks) ──────────────────────────────
 #
-#   action-list screens:
+#   action-list / table screens:
 #     _SHELLFRAME_APP_DRAW_FN   row renderer callback name (empty → built-in default)
 #     _SHELLFRAME_APP_KEY_FN    extra key handler callback name (empty → none)
 #     _SHELLFRAME_APP_HINT      footer hint text (empty → built-in default)
+#
+#   table screens (additional):
+#     SHELLFRAME_TBL_HEADERS[@]    column header labels (plain text)
+#     SHELLFRAME_TBL_COL_WIDTHS[@] visible character width per column
+#     SHELLFRAME_TBL_PAGE_TITLE    page header bar text (empty → no page chrome)
+#     SHELLFRAME_TBL_PAGE_H1       h1 content title
+#     SHELLFRAME_TBL_PAGE_FOOTER   page footer bar text
+#     SHELLFRAME_TBL_PANEL_FN      right-panel callback name (empty → full-width table)
+#     Note: SHELLFRAME_TBL_SCROLL is NOT reset here — set it in your render hook.
 #
 #   confirm screens:
 #     _SHELLFRAME_APP_QUESTION  question text
@@ -72,9 +82,9 @@ _SHELLFRAME_APP_DETAILS=()
 _shellframe_app_event() {
     local _type="$1" _rc="$2"
     case "$_type" in
-        action-list) (( _rc == 0 )) && printf 'confirm' || printf 'quit'   ;;
-        confirm)     (( _rc == 0 )) && printf 'yes'     || printf 'no'     ;;
-        alert)       printf 'dismiss'                                       ;;
+        action-list|table) (( _rc == 0 )) && printf 'confirm' || printf 'quit'   ;;
+        confirm)           (( _rc == 0 )) && printf 'yes'     || printf 'no'     ;;
+        alert)             printf 'dismiss'                                       ;;
     esac
 }
 
@@ -91,6 +101,14 @@ shellframe_app() {
         _SHELLFRAME_APP_QUESTION=""
         _SHELLFRAME_APP_TITLE=""
         _SHELLFRAME_APP_DETAILS=()
+        SHELLFRAME_TBL_HEADERS=()
+        SHELLFRAME_TBL_COL_WIDTHS=()
+        SHELLFRAME_TBL_PAGE_TITLE=""
+        SHELLFRAME_TBL_PAGE_H1=""
+        SHELLFRAME_TBL_PAGE_FOOTER=""
+        SHELLFRAME_TBL_PANEL_FN=""
+        SHELLFRAME_TBL_BELOW_FN=""
+        SHELLFRAME_TBL_BELOW_ROWS=0
 
         # Get screen type (pure — subshell OK), run render hook (direct — can mutate globals)
         local _type
@@ -102,6 +120,13 @@ shellframe_app() {
         case "$_type" in
             action-list)
                 shellframe_action_list \
+                    "$_SHELLFRAME_APP_DRAW_FN" \
+                    "$_SHELLFRAME_APP_KEY_FN" \
+                    "$_SHELLFRAME_APP_HINT"
+                _rc=$?
+                ;;
+            table)
+                shellframe_table \
                     "$_SHELLFRAME_APP_DRAW_FN" \
                     "$_SHELLFRAME_APP_KEY_FN" \
                     "$_SHELLFRAME_APP_HINT"

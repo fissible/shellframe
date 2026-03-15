@@ -71,6 +71,7 @@ working interactive list selector.
 | `src/input.sh` | `shellframe_read_key`, `SHELLFRAME_KEY_*` constants |
 | `src/draw.sh` | `shellframe_pad_left`, color constants |
 | `src/widgets/action-list.sh` | Full-screen interactive action list |
+| `src/widgets/table.sh` | Full-page navigable table with headers, page chrome, scroll, and optional below-area |
 | `src/widgets/confirm.sh` | Modal yes/no dialog |
 | `src/widgets/alert.sh` | Modal informational dismiss dialog |
 | `src/app.sh` | `shellframe_app` — declarative multi-screen FSM runtime |
@@ -100,6 +101,7 @@ shellframe/
 │   ├── app.sh             # shellframe_app — declarative screen FSM runtime
 │   └── widgets/
 │       ├── action-list.sh # interactive action-list widget
+│       ├── table.sh       # full-page navigable table widget
 │       ├── confirm.sh     # modal yes/no confirmation dialog
 │       └── alert.sh       # modal informational dialog (dismiss-only)
 ├── docs/
