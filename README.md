@@ -134,6 +134,34 @@ Use `CLUI_AL_SAVED_STTY` to suspend the TUI (e.g. to run a pager).
 
 See [`examples/action-list.sh`](examples/action-list.sh) for a complete demo.
 
+### `src/widgets/confirm.sh`
+
+**`clui_confirm <question> [detail ...]`**
+
+Centered modal yes/no dialog. Optional plain-text `detail` lines are shown
+above the question (e.g. a summary of pending changes). Returns 0 for Yes,
+1 for No or cancel.
+
+| Key | Action |
+|---|---|
+| `←`/`→`  `h`/`l` | Toggle between Yes and No |
+| `y` / `Y` | Select Yes and confirm immediately |
+| `n` / `N` | Select No and confirm immediately |
+| `Enter` / `c` | Confirm current selection (default: Yes) |
+| `Esc` / `q` / `Q` | Cancel (same as No) |
+
+```bash
+clui_confirm "Apply 3 pending changes?" \
+    "  config.json   delete" \
+    "  main.sh       install"
+
+if (( $? == 0 )); then
+    echo "applying..."
+fi
+```
+
+See [`examples/confirm.sh`](examples/confirm.sh) for a complete demo.
+
 
 ---
 
@@ -395,10 +423,12 @@ clui/
 │   ├── input.sh     # key reading + CLUI_KEY_* constants
 │   ├── draw.sh      # clui_pad_left, color constants
 │   └── widgets/
-│       └── action-list.sh  # interactive action-list widget
+│       ├── action-list.sh  # interactive action-list widget
+│       └── confirm.sh      # modal yes/no confirmation dialog
 ├── examples/
 │   ├── list-select.sh      # single-select list demo
-│   └── action-list.sh      # action-list widget demo
+│   ├── action-list.sh      # action-list widget demo
+│   └── confirm.sh          # confirm modal demo
 └── tests/
     ├── assert.sh            # test assertion helpers
     ├── pty_run.py           # PTY-based integration test runner
@@ -412,6 +442,7 @@ clui/
     │   └── test-draw.sh     # unit tests for clui_pad_left
     └── integration/
         ├── test-list-select.sh   # PTY tests for list-select example
-        └── test-action-list.sh   # PTY tests for action-list example
+        ├── test-action-list.sh   # PTY tests for action-list widget
+        └── test-confirm.sh       # PTY tests for confirm modal
 ```
 
