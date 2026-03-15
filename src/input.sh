@@ -31,7 +31,7 @@ CLUI_KEY_UP=$'\x1b[A'
 CLUI_KEY_DOWN=$'\x1b[B'
 CLUI_KEY_RIGHT=$'\x1b[C'
 CLUI_KEY_LEFT=$'\x1b[D'
-CLUI_KEY_ENTER=$'\r'
+CLUI_KEY_ENTER=$'\n'   # stty icrnl (on by default) translates \r → \n on input
 CLUI_KEY_SPACE=' '
 CLUI_KEY_ESC=$'\x1b'
 
