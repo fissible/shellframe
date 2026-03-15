@@ -2,6 +2,105 @@
 
 ---
 
+## `src/clip.sh`
+
+String measurement and clipping utilities using the **raw + rendered** convention:
+`raw` is the plain-text version of the string (no ANSI codes) — its byte length
+equals its visible character count. `rendered` is the same content with ANSI
+escape codes interspersed. This sidesteps ANSI-stripping regex portability bugs.
+
+**`shellframe_str_len raw`**
+
+Print the visible character count of `$raw` (i.e. `${#raw}`).
+
+**`shellframe_str_clip raw rendered width`**
+
+Print `$rendered` hard-clipped to at most `$width` visible characters.
+If the visible length already fits, `$rendered` is printed unchanged (fast path).
+If `$width ≤ 0`, prints nothing.
+Appends `\033[0m` (SGR reset) only when truncation occurred **and** ANSI sequences
+were present in the consumed portion, to prevent color bleed.
+
+**`shellframe_str_clip_ellipsis raw rendered width`**
+
+Like `shellframe_str_clip` but replaces the last character with `…` when
+truncation occurs. If `$width == 1`, prints just `…`. If `$width ≤ 0`, prints nothing.
+
+**`shellframe_str_pad raw rendered width`**
+
+Left-align `$rendered` in a field of `$width` visible characters (space-padded right).
+Does not truncate — combine with `shellframe_str_clip` first if needed.
+Replacement for `shellframe_pad_left` with consistent naming; `shellframe_pad_left`
+is retained for backwards compatibility.
+
+```bash
+local raw="hello world"
+local rendered="${SHELLFRAME_GREEN}hello world${SHELLFRAME_RESET}"
+printf '%s\n' "$(shellframe_str_clip "$raw" "$rendered" 5)"        # → green "hello"
+printf '%s\n' "$(shellframe_str_clip_ellipsis "$raw" "$rendered" 6)" # → green "hello…"
+printf '%s\n' "$(shellframe_str_pad "$raw" "$rendered" 15)"         # → green "hello world    "
+```
+
+---
+
+## `src/selection.sh`
+
+Shared cursor and multi-select state model for list-like components.
+State is keyed by a **context name** (`ctx`) — an alphanumeric identifier that
+allows multiple independent selection states to coexist on screen simultaneously.
+
+### Cursor
+
+The cursor is the currently highlighted row index (0-based integer, always in
+range `[0, count-1]`).
+
+### Multi-select
+
+An independent boolean flag per row. Toggling an item adds/removes it from the
+selection set. The cursor position and selection set are orthogonal — moving the
+cursor does not change selection.
+
+### Functions
+
+**`shellframe_sel_init ctx count`**
+
+Initialise (or reset) a context with `count` items. Sets cursor to 0, clears all
+flags. Must be called before any other function for a new context.
+
+**`shellframe_sel_move ctx direction [page_size]`**
+
+Move the cursor. `direction`: `up` | `down` | `home` | `end` | `page_up` | `page_down`.
+`page_size` defaults to 10. Cursor is clamped to `[0, count-1]`.
+
+**`shellframe_sel_toggle ctx [index]`**
+
+Toggle the multi-select flag for `$index` (default: current cursor row).
+
+**`shellframe_sel_select_all ctx`** / **`shellframe_sel_clear_all ctx`**
+
+Set all flags to 1 (or 0).
+
+**`shellframe_sel_cursor ctx`** → prints cursor index
+
+**`shellframe_sel_count ctx`** → prints total item count
+
+**`shellframe_sel_selected ctx`** → prints space-separated selected indices (blank line if none)
+
+**`shellframe_sel_selected_count ctx`** → prints count of selected items
+
+**`shellframe_sel_is_selected ctx index`** → returns 0 if selected, 1 if not
+
+```bash
+shellframe_sel_init "mylist" 5
+shellframe_sel_move "mylist" down
+shellframe_sel_toggle "mylist"                     # toggle item at cursor (1)
+shellframe_sel_toggle "mylist" 3                   # toggle item 3 explicitly
+shellframe_sel_selected "mylist"                   # → "1 3"
+shellframe_sel_is_selected "mylist" 1 && echo yes  # → yes
+```
+
+---
+
 ## `src/screen.sh`
 
 | Function | Description |

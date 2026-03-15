@@ -105,9 +105,9 @@ printf '%d/%d assertions passed across %d file(s)\n' \
 
 if (( ${#_failed_files[@]} > 0 )); then
     printf 'Failed files:\n'
-    local f
-    for f in "${_failed_files[@]}"; do
-        printf '  %s\n' "$f"
+    local_f=""
+    for local_f in "${_failed_files[@]}"; do
+        printf '  %s\n' "$local_f"
     done
     exit 1
 fi

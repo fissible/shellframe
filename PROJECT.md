@@ -27,9 +27,9 @@ Start every new session by reading this file. Update task status here when work 
 
 | # | Task                             | Effort | GH Issue | Status |
 |---|----------------------------------|--------|----------|--------|
-| 1 | Component contract (render, sizing, focus, input, state) | S | [#1](https://github.com/fissible/shellframe/issues/1) | open |
-| 2 | Layout contract (vstack, hstack, fixed, fill regions)    | S | [#2](https://github.com/fissible/shellframe/issues/2) | open |
-| 3 | Focus model (traversal, trapping, delegation)            | S | [#3](https://github.com/fissible/shellframe/issues/3) | open |
+| 1 | Component contract (render, sizing, focus, input, state) | S | [#1](https://github.com/fissible/shellframe/issues/1) | closed |
+| 2 | Layout contract (vstack, hstack, fixed, fill regions)    | S | [#2](https://github.com/fissible/shellframe/issues/2) | closed |
+| 3 | Focus model (traversal, trapping, delegation)            | S | [#3](https://github.com/fissible/shellframe/issues/3) | closed |
 
 ---
 
@@ -39,9 +39,9 @@ Start every new session by reading this file. Update task status here when work 
 | # | Task                             | Effort | GH Issue | Status |
 |---|----------------------------------|--------|----------|--------|
 | 4 | Keyboard input mapping module    | M | [#4](https://github.com/fissible/shellframe/issues/4) | open |
-| 5 | Selection model module           | S | [#5](https://github.com/fissible/shellframe/issues/5) | open |
+| 5 | Selection model module           | S | [#5](https://github.com/fissible/shellframe/issues/5) | closed |
 | 6 | Cursor model module              | M | [#6](https://github.com/fissible/shellframe/issues/6) | open |
-| 7 | Clipping and measurement helpers | S | [#7](https://github.com/fissible/shellframe/issues/7) | open |
+| 7 | Clipping and measurement helpers | S | [#7](https://github.com/fissible/shellframe/issues/7) | closed |
 
 ---
 
@@ -146,6 +146,8 @@ _Last updated: 2026-03-15_
 - shellql repo stubbed and pushed to GitHub (https://github.com/fissible/shellql)
 - All 28 GitHub issues created: shellframe #1–18, shellql #1–9
 - PROJECT.md is the master tracking sheet; shellql/PLAN.md cross-references shellframe issues
-- All work is in planning phase; no Phase 1–4 code written yet
 - Existing shellframe widgets (table, action-list, confirm, alert) are complete and tested
-- **Next session: start shellframe #1 (component contract), #2 (layout contract), #3 (focus model) — all spec/doc work, no deps, can be done in one session**
+- Phase 1 complete: #1 component contract, #2 layout contract, #3 focus model written to `docs/contracts/`
+- Phase 2 partial: #5 selection model (`src/selection.sh`) and #7 clipping helpers (`src/clip.sh`) complete and tested (70/70 assertions)
+- run.sh bug fixed: `local f` was outside a function (renamed to `local_f`)
+- **Next session: remaining Phase 2 — #4 keyboard input mapping module (M effort) and #6 cursor model (M effort). Both are code. Start with #4 as it builds on the existing `src/input.sh`.**
