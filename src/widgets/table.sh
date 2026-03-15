@@ -37,6 +37,8 @@
 #
 # ── State globals (set by shellframe_table; readable from callbacks) ─────────────
 #
+#   SHELLFRAME_TBL_COLS       — current terminal column count (set by shellframe_table on
+#                               each redraw); read-only for callbacks, including draw_row_fn
 #   SHELLFRAME_TBL_SELECTED   — index of the currently highlighted row
 #   SHELLFRAME_TBL_SCROLL     — index of the first visible row (vertical scroll offset)
 #                               Reset this to 0 in your screen's render hook when
@@ -76,6 +78,7 @@
 SHELLFRAME_TBL_SELECTED=0
 SHELLFRAME_TBL_SCROLL=0
 SHELLFRAME_TBL_SAVED_STTY=""
+SHELLFRAME_TBL_COLS=0
 SHELLFRAME_TBL_HEADERS=()
 SHELLFRAME_TBL_COL_WIDTHS=()
 SHELLFRAME_TBL_PAGE_TITLE=""
@@ -133,6 +136,7 @@ shellframe_table() {
         # alternate-screen context where COLUMNS/LINES may be stale).
         local _rows=24 _cols=80
         { read -r _rows _cols; } < <(stty size </dev/tty 2>/dev/null) || true
+        SHELLFRAME_TBL_COLS=$_cols
 
         # ── Page chrome: top ──────────────────────────────────────────────
         local _content_top=1
