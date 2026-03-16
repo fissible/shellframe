@@ -190,16 +190,27 @@ _shellframe_ed_build_vmap() {
 }
 
 # Total number of visual rows.
+# Usage: _shellframe_ed_vrow_count ctx [out_var]
+# With out_var: sets the variable (no subshell). Without: prints to stdout.
 _shellframe_ed_vrow_count() {
-    local _ctx="$1"
+    local _ctx="$1" _out_var="${2:-}"
     local _vmap_var="_SHELLFRAME_ED_${_ctx}_VMAP"
     local _vmap="${!_vmap_var:-}"
-    if [[ -z "$_vmap" ]]; then printf '1'; return; fi
-    local _arr
-    local _old_IFS="$IFS"
-    IFS=' ' read -r -a _arr <<< "$_vmap"
-    IFS="$_old_IFS"
-    printf '%d' "${#_arr[@]}"
+    local _n
+    if [[ -z "$_vmap" ]]; then
+        _n=1
+    else
+        local _arr
+        local _old_IFS="$IFS"
+        IFS=' ' read -r -a _arr <<< "$_vmap"
+        IFS="$_old_IFS"
+        _n="${#_arr[@]}"
+    fi
+    if [[ -n "$_out_var" ]]; then
+        printf -v "$_out_var" '%d' "$_n"
+    else
+        printf '%d' "$_n"
+    fi
 }
 
 # Given (content_row, col), find the visual row index.
@@ -576,7 +587,7 @@ _shellframe_ed_move_down() {
         local _cur_vrow
         _shellframe_ed_cursor_to_vrow "$_ctx" "$_row" "$_col" _cur_vrow
         local _total_vrows
-        _total_vrows=$(_shellframe_ed_vrow_count "$_ctx")
+        _shellframe_ed_vrow_count "$_ctx" _total_vrows
         (( _cur_vrow >= _total_vrows - 1 )) && return 0
         local _target_vrow=$(( _cur_vrow + 1 ))
 
@@ -660,7 +671,7 @@ _shellframe_ed_page_down() {
         local _cur_vrow
         _shellframe_ed_cursor_to_vrow "$_ctx" "$_row" "$_col" _cur_vrow
         local _total_vrows
-        _total_vrows=$(_shellframe_ed_vrow_count "$_ctx")
+        _shellframe_ed_vrow_count "$_ctx" _total_vrows
         local _target_vrow=$(( _cur_vrow + _vrows ))
         (( _target_vrow >= _total_vrows )) && _target_vrow=$(( _total_vrows - 1 ))
 
@@ -787,6 +798,9 @@ shellframe_editor_render() {
     local _rev="${SHELLFRAME_REVERSE:-$'\033[7m'}"
     local _rst="${SHELLFRAME_RESET:-$'\033[0m'}"
 
+    # Accumulate all output into _buf; write once to eliminate mid-frame flicker.
+    local _buf="" _tmp=""
+
     if (( _wrap )); then
         # ── Wrap mode ────────────────────────────────────────────────────────
         # vmap was just rebuilt by ensure_visible
@@ -807,7 +821,8 @@ shellframe_editor_render() {
             local _screen_row=$(( _top + _r ))
             local _vr=$(( _vtop + _r ))
 
-            printf '\033[%d;%dH%*s' "$_screen_row" "$_left" "$_width" '' >/dev/tty
+            printf -v _tmp '\033[%d;%dH%*s' "$_screen_row" "$_left" "$_width" ''
+            _buf+="$_tmp"
             [[ $_vr -ge $_total_vrows ]] && continue
 
             local _e="${_vmap_arr[$_vr]}"
@@ -819,26 +834,27 @@ shellframe_editor_render() {
             local _vis="${_line:$_s:$_l}"
             local _vlen="${#_vis}"
 
-            printf '\033[%d;%dH' "$_screen_row" "$_left" >/dev/tty
+            printf -v _tmp '\033[%d;%dH' "$_screen_row" "$_left"
+            _buf+="$_tmp"
 
             if (( _focused && _vr == _cursor_vrow )); then
                 local _cur_vis=$(( _col - _s ))
-                printf '%s' "${_vis:0:$_cur_vis}" >/dev/tty
+                _buf+="${_vis:0:$_cur_vis}"
                 if (( _cur_vis < _vlen )); then
-                    printf '%s%s%s' "$_rev" "${_vis:$_cur_vis:1}" "$_rst" >/dev/tty
-                    printf '%s' "${_vis:$(( _cur_vis + 1 ))}" >/dev/tty
+                    _buf+="${_rev}${_vis:$_cur_vis:1}${_rst}"
+                    _buf+="${_vis:$(( _cur_vis + 1 ))}"
                 else
-                    printf '%s %s' "$_rev" "$_rst" >/dev/tty
+                    _buf+="${_rev} ${_rst}"
                 fi
                 local _drawn=$(( _vlen < _width ? _vlen : _width ))
                 (( _cur_vis >= _vlen )) && (( _drawn++ )) || true
-                local _k=0
-                while (( _k < _width - _drawn )); do
-                    printf ' ' >/dev/tty
-                    (( _k++ ))
-                done
+                local _pad=$(( _width - _drawn ))
+                if (( _pad > 0 )); then
+                    printf -v _tmp '%*s' "$_pad" ''
+                    _buf+="$_tmp"
+                fi
             else
-                printf '%s' "$_vis" >/dev/tty
+                _buf+="$_vis"
             fi
         done
 
@@ -852,7 +868,8 @@ shellframe_editor_render() {
             local _screen_row=$(( _top + _r ))
             local _content_row=$(( _vtop + _r ))
 
-            printf '\033[%d;%dH%*s' "$_screen_row" "$_left" "$_width" '' >/dev/tty
+            printf -v _tmp '\033[%d;%dH%*s' "$_screen_row" "$_left" "$_width" ''
+            _buf+="$_tmp"
             [[ $_content_row -ge $_count ]] && continue
 
             local _line
@@ -860,31 +877,34 @@ shellframe_editor_render() {
             local _vis="${_line:$_hscroll:$_width}"
             local _vlen="${#_vis}"
 
-            printf '\033[%d;%dH' "$_screen_row" "$_left" >/dev/tty
+            printf -v _tmp '\033[%d;%dH' "$_screen_row" "$_left"
+            _buf+="$_tmp"
 
             if (( _focused && _content_row == _row )); then
                 local _cur_vis=$(( _col - _hscroll ))
-                printf '%s' "${_vis:0:$_cur_vis}" >/dev/tty
+                _buf+="${_vis:0:$_cur_vis}"
                 if (( _cur_vis < _vlen )); then
-                    printf '%s%s%s' "$_rev" "${_vis:$_cur_vis:1}" "$_rst" >/dev/tty
-                    printf '%s' "${_vis:$(( _cur_vis + 1 ))}" >/dev/tty
+                    _buf+="${_rev}${_vis:$_cur_vis:1}${_rst}"
+                    _buf+="${_vis:$(( _cur_vis + 1 ))}"
                 else
-                    printf '%s %s' "$_rev" "$_rst" >/dev/tty
+                    _buf+="${_rev} ${_rst}"
                 fi
                 local _drawn=$(( _vlen < _width ? _vlen : _width ))
                 (( _cur_vis >= _vlen )) && (( _drawn++ )) || true
-                local _k=0
-                while (( _k < _width - _drawn )); do
-                    printf ' ' >/dev/tty
-                    (( _k++ ))
-                done
+                local _pad=$(( _width - _drawn ))
+                if (( _pad > 0 )); then
+                    printf -v _tmp '%*s' "$_pad" ''
+                    _buf+="$_tmp"
+                fi
             else
-                printf '%s' "$_vis" >/dev/tty
+                _buf+="$_vis"
             fi
         done
     fi
 
-    printf '\033[%d;%dH' "$(( _top + _height - 1 ))" "$_left" >/dev/tty
+    printf -v _tmp '\033[%d;%dH' "$(( _top + _height - 1 ))" "$_left"
+    _buf+="$_tmp"
+    printf '%s' "$_buf" >/dev/tty
 }
 
 # ── shellframe_editor_on_key ──────────────────────────────────────────────────
