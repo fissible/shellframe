@@ -59,7 +59,7 @@ Start every new session by reading this file. Update task status here when work 
 | 14 | Modal/dialog (overlay, focus trap, dismiss/confirm) | M | [#14](https://github.com/fissible/shellframe/issues/14) | closed | 3,9 |
 | 15 | Tree view (expand/collapse, selection, keyboard, indent) | L | [#15](https://github.com/fissible/shellframe/issues/15) | closed | 5,10,11 |
 | 16 | Text editor (multiline, cursor, scroll, submit hook) | L | [#16](https://github.com/fissible/shellframe/issues/16) | closed | 6,10,12 |
-| 17 | Data grid (rows/cols, sticky header, H+V scroll, col width) | XL | [#17](https://github.com/fissible/shellframe/issues/17) | open | 5,7,10 |
+| 17 | Data grid (rows/cols, sticky header, H+V scroll, col width) | XL | [#17](https://github.com/fissible/shellframe/issues/17) | closed | 5,7,10 |
 
 ---
 
@@ -165,7 +165,7 @@ Before adding any new widget or screen:
 ## Session handoff notes
 > Update this section at the end of each session.
 
-_Last updated: 2026-03-16 (session 3)_
+_Last updated: 2026-03-16 (session 4)_
 - shellql repo stubbed and pushed to GitHub (https://github.com/fissible/shellql)
 - All 28 GitHub issues created: shellframe #1–18, shellql #1–9
 - PROJECT.md is the master tracking sheet; shellql/PLAN.md cross-references shellframe issues
@@ -195,4 +195,6 @@ _Last updated: 2026-03-16 (session 3)_
   - Footer/doc labels: Ctrl-K/U/W changed from "kill" to "clear" (plain English).
   - Wrap cursor boundary fix: vrow movement functions previously clamped `new_col` to `seg_start + seg_len` (exclusive end), which equals the start of the next segment; `cursor_to_vrow`'s "last matching segment wins" rule then resolved the position to the wrong visual row, causing cursor jumps and invisible-character artifacts. Fixed by clamping intermediate segments to `seg_start + seg_len - 1` and last segments to `line_len`. 592/592 assertions.
 - **Editor goal column (2026-03-16)**: `_SHELLFRAME_ED_${ctx}_GOAL_COL` added to `shellframe_editor_init`. All four vertical movement functions (move_up, move_down, page_up, page_down) store vis_col on first move and reuse it on subsequent vertical moves, so the cursor no longer snaps to col 0 after passing through blank or shorter lines. Non-vertical keys reset GOAL_COL to -1. 610/610 assertions (+18 new goal-col tests).
-- **Next session: #17 Data grid (XL, last Phase 3 item) — then M1 milestone closed.**
+- **Phase 3 #17 Data grid complete** (2026-03-16): `src/widgets/grid.sh` — v2 composable data grid. Flat 1D `SHELLFRAME_GRID_DATA[row*COLS+col]` array. Sticky header (bold/white labels, only drawn when height ≥ 3 and headers set). `│` column separators between every pair of adjacent visible columns; `SHELLFRAME_GRID_PK_COLS` (int, default 0): separator after column PK_COLS-1 becomes `┃` (data rows) / `╋` (header junction) to visually mark the PK boundary. Header `─` separator row uses `┼`/`╋` junctions at separator x-positions. V scroll via selection.sh + scroll.sh row axis; H scroll via scroll.sh column axis (Left/Right pan 1 column). Conservative `vcols=1` init; `shellframe_scroll_resize` in render updates actual visible-column count. Cursor row: reverse video. Optional multiselect (Space). 52/52 assertions. 640/640 total.
+- **M1 milestone achieved**: Phase 3 fully complete (#8–#17 all closed). Phase 4 (#18 app shell) was already closed. All of Phases 1–4 are done.
+- **Next session: Phase 5 mock ShellQL screens** (#19 welcome, #20 schema browser, #21 table view, #22 query screen, #23 record inspector). These live in the shellql repo (`~/lib/fissible/shellql`). Start with #19 (welcome screen) — depends on list (#11) and shell (#18).
