@@ -25,6 +25,30 @@ shellframe_screen_exit() {
 
 # Clear the current screen and move cursor to top-left. Call at the start of
 # each redraw cycle inside the alternate screen.
+#
+# RENDERING STRATEGY — full redraw (current):
+#   Every frame calls shellframe_screen_clear, then every widget re-renders
+#   its full region to /dev/tty. Simple, correct, and fast enough for typical
+#   80×24 TUIs. The cost is visible flicker on slow connections and unnecessary
+#   work when only one widget changes.
+#
+# ROADMAP — two-stage migration to diff rendering (Phase 7, shellframe):
+#
+#   Stage 1 — Dirty-region tracking (Phase 7 task B, GH #TBD):
+#     Each widget gains a dirty flag. The app render loop skips
+#     shellframe_screen_clear and only calls render on dirty widgets.
+#     Render functions still write directly to /dev/tty. No API break.
+#     Captures ~80% of the benefit with minimal change.
+#
+#   Stage 2 — Full per-cell framebuffer diff (Phase 7 task F, GH #TBD):
+#     A flat indexed array _SF_FRAME_CURR[row*COLS+col] (and _PREV mirror)
+#     acts as a virtual screen. All render functions write to the framebuffer
+#     instead of /dev/tty — a mechanical but pervasive change touching
+#     panel.sh, draw.sh, and every widget. shellframe_screen_flush() diffs
+#     current vs prev and emits \033[row;colH + char only for changed cells.
+#     This is the "right" long-term answer: eliminates flicker entirely and
+#     makes large-TUI performance independent of unchanged regions.
+#     Depends on Stage 1 being stable first.
 shellframe_screen_clear() {
     printf '\033[H\033[3J\033[2J'
     # \033[H   — cursor home (top-left)

@@ -98,6 +98,23 @@ Start every new session by reading this file. Update task status here when work 
 
 ---
 
+## Phase 7 — Platform Enhancements (shellframe)
+> Keyboard hardening, diff rendering, and mouse support.
+> Independent of ShellQL app phases — can be tackled in any order after Phase 4.
+> Tasks A→C→D→E form one dependency chain (input → mouse parse → hit-test → routing).
+> Tasks B→F form a second chain (dirty-region → framebuffer diff).
+
+| # | Task | Effort | GH Issue | Status | Deps |
+|---|------|--------|----------|--------|------|
+| A | Input hardening: generic CSI drain path (prevents buffer leakage from unknown sequences), F1–F12 constants + recognition, modifier+arrow sequences (`\x1b[1;2A` etc.) — all changes in `src/input.sh` + `src/keymap.sh` | S | [#TBD](https://github.com/fissible/shellframe/issues) | open | 4 |
+| B | Dirty-region rendering: widget dirty flags + conditional re-render in app loop; `shellframe_screen_clear` only called when full repaint is needed; render fns still write to `/dev/tty` — no API break | M | [#TBD](https://github.com/fissible/shellframe/issues) | open | 18 |
+| C | Mouse: `shellframe_mouse_enter/exit` in `screen.sh`; SGR mouse sequence parsing in `shellframe_read_key`; `SHELLFRAME_MOUSE_COL/ROW/BUTTON/ACTION` output vars | S | [#TBD](https://github.com/fissible/shellframe/issues) | open | A |
+| D | Widget hit-test registry: `shellframe_widget_register name top left width height` + `shellframe_widget_at row col`; new module `src/hitbox.sh` | M | [#TBD](https://github.com/fissible/shellframe/issues) | open | 9, 18 |
+| E | Mouse routing in app shell + `on_mouse` handler per widget (click-to-focus, click-to-select in lists, scroll-wheel in scroll views) | M | [#TBD](https://github.com/fissible/shellframe/issues) | open | C, D |
+| F | Framebuffer diff rendering: `_SF_FRAME_CURR/PREV[row*COLS+col]` flat indexed arrays; all render fns write to framebuffer instead of `/dev/tty`; `shellframe_screen_flush` diffs and emits only changed cells. See migration note in `src/screen.sh`. | XL | [#TBD](https://github.com/fissible/shellframe/issues) | open | B |
+
+---
+
 ## Milestones
 
 | Milestone | Condition | Status |
@@ -105,6 +122,7 @@ Start every new session by reading this file. Update task status here when work 
 | **M1: Shellframe ready** | Phase 1–4 all closed | open |
 | **M2: Mock app complete** | Phase 5 all closed, mock screens working | open |
 | **M3: ShellQL v0.1** | Phase 6 all closed, integration tests passing | open |
+| **M4: Platform enhancements** | Phase 7 all closed; mouse, diff rendering, full F-key support | open |
 
 ---
 
@@ -118,10 +136,15 @@ Phase 1 (contracts)
     │       └── Phase 3 (primitives)
     │               │
     │               └── Phase 4 (app shell) ──→ Phase 5 (mock screens)
-    │                                                  │
-    │                                           Phase 6 (sqlite)
-    │                                                  │
-    │                                           shql v0.1 alpha
+    │               │                                  │
+    │               │                           Phase 6 (sqlite)
+    │               │                                  │
+    │               │                           shql v0.1 alpha
+    │               │
+    │               └── Phase 7 (platform enhancements) — parallel track
+    │                       A (input hardening)
+    │                       ├── C (mouse parse) → D (hit-test) → E (routing)
+    │                       └── B (dirty-region) → F (framebuffer diff)
     └── (focus model feeds Phase 4 directly)
 ```
 
@@ -162,4 +185,5 @@ _Last updated: 2026-03-15_
   - `src/widgets/list.sh`: scrollable list using selection.sh + scroll.sh, optional multiselect
   - Key decisions: `shellframe_sel_move ctx down` always moves 1 step (page_size only applies to page_up/page_down); field scroll is computed at render time from cursor position
 - **ptyunit open-source repo created** (https://github.com/fissible/ptyunit): PROJECT.md and README.md committed; 11 GitHub issues created for the full extraction plan. New unit tests written in shellframe can continue using local `tests/assert.sh` — migration to ptyunit is a mechanical rename when Phase 1 of ptyunit is done.
-- **Next session: Phase 3 remaining — #14 Modal/dialog (deps: #3 focus, #9 panel). Phase 4 app shell (#18) follows. All deps for both are now satisfied.**
+- **Phase 7 planned**: platform enhancements (input hardening, dirty-region + framebuffer diff rendering, mouse support) added to PROJECT.md. Migration rationale and two-stage rendering roadmap documented in `src/screen.sh`. GitHub issues for Phase 7 tasks A–F not yet created (marked `#TBD`).
+- **Next session: Phase 3 remaining — #14 Modal/dialog (deps: #3 focus, #9 panel). Phase 4 app shell (#18) follows. All deps for both are now satisfied. Phase 7 GitHub issues can be created any time (independent of Phase 3/4 work).**
