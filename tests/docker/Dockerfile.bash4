@@ -14,6 +14,6 @@ RUN apk add --no-cache python3 ncurses-libs
 COPY --from=bash4_bin /usr/local/bin/bash /usr/local/bin/bash
 RUN ln -sf /usr/local/bin/bash /bin/bash
 
-WORKDIR /clui
+WORKDIR /shellframe
 COPY . .
-CMD ["bash", "tests/run.sh"]
+CMD ["bash", "tests/ptyunit/run.sh"]

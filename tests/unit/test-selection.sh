@@ -6,28 +6,28 @@ TESTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SHELLFRAME_DIR="$(cd "$TESTS_DIR/.." && pwd)"
 
 source "$SHELLFRAME_DIR/src/selection.sh"
-source "$TESTS_DIR/assert.sh"
+source "$TESTS_DIR/ptyunit/assert.sh"
 
 # ── shellframe_sel_init ────────────────────────────────────────────────────────
 
-test_begin "sel_init: cursor starts at 0"
+ptyunit_test_begin "sel_init: cursor starts at 0"
 shellframe_sel_init "t" 5
 assert_output "0" shellframe_sel_cursor "t"
 
-test_begin "sel_init: count is recorded"
+ptyunit_test_begin "sel_init: count is recorded"
 shellframe_sel_init "t" 5
 assert_output "5" shellframe_sel_count "t"
 
-test_begin "sel_init: no items selected initially"
+ptyunit_test_begin "sel_init: no items selected initially"
 shellframe_sel_init "t" 5
 assert_output "0" shellframe_sel_selected_count "t"
 
-test_begin "sel_init: zero-item list"
+ptyunit_test_begin "sel_init: zero-item list"
 shellframe_sel_init "t" 0
 assert_output "0" shellframe_sel_cursor "t"
 assert_output "0" shellframe_sel_count "t"
 
-test_begin "sel_init: reinit resets cursor and flags"
+ptyunit_test_begin "sel_init: reinit resets cursor and flags"
 shellframe_sel_init "t" 5
 shellframe_sel_move "t" down
 shellframe_sel_toggle "t"
@@ -37,65 +37,65 @@ assert_output "0" shellframe_sel_selected_count "t"
 
 # ── shellframe_sel_move ────────────────────────────────────────────────────────
 
-test_begin "sel_move: down increments cursor"
+ptyunit_test_begin "sel_move: down increments cursor"
 shellframe_sel_init "t" 5
 shellframe_sel_move "t" down
 assert_output "1" shellframe_sel_cursor "t"
 
-test_begin "sel_move: down clamps at last item"
+ptyunit_test_begin "sel_move: down clamps at last item"
 shellframe_sel_init "t" 3
 shellframe_sel_move "t" down
 shellframe_sel_move "t" down
 shellframe_sel_move "t" down   # would be index 3, out of range
 assert_output "2" shellframe_sel_cursor "t"
 
-test_begin "sel_move: up from 0 stays at 0"
+ptyunit_test_begin "sel_move: up from 0 stays at 0"
 shellframe_sel_init "t" 5
 shellframe_sel_move "t" up
 assert_output "0" shellframe_sel_cursor "t"
 
-test_begin "sel_move: up decrements cursor"
+ptyunit_test_begin "sel_move: up decrements cursor"
 shellframe_sel_init "t" 5
 shellframe_sel_move "t" down
 shellframe_sel_move "t" down
 shellframe_sel_move "t" up
 assert_output "1" shellframe_sel_cursor "t"
 
-test_begin "sel_move: home goes to 0"
+ptyunit_test_begin "sel_move: home goes to 0"
 shellframe_sel_init "t" 5
 shellframe_sel_move "t" down
 shellframe_sel_move "t" down
 shellframe_sel_move "t" home
 assert_output "0" shellframe_sel_cursor "t"
 
-test_begin "sel_move: end goes to last item"
+ptyunit_test_begin "sel_move: end goes to last item"
 shellframe_sel_init "t" 5
 shellframe_sel_move "t" end
 assert_output "4" shellframe_sel_cursor "t"
 
-test_begin "sel_move: page_down jumps by page_size"
+ptyunit_test_begin "sel_move: page_down jumps by page_size"
 shellframe_sel_init "t" 20
 shellframe_sel_move "t" page_down 5
 assert_output "5" shellframe_sel_cursor "t"
 
-test_begin "sel_move: page_down clamps at last item"
+ptyunit_test_begin "sel_move: page_down clamps at last item"
 shellframe_sel_init "t" 10
 shellframe_sel_move "t" page_down 20
 assert_output "9" shellframe_sel_cursor "t"
 
-test_begin "sel_move: page_up from middle"
+ptyunit_test_begin "sel_move: page_up from middle"
 shellframe_sel_init "t" 20
 shellframe_sel_move "t" page_down 10
 shellframe_sel_move "t" page_up 4
 assert_output "6" shellframe_sel_cursor "t"
 
-test_begin "sel_move: page_up clamps at 0"
+ptyunit_test_begin "sel_move: page_up clamps at 0"
 shellframe_sel_init "t" 10
 shellframe_sel_move "t" down
 shellframe_sel_move "t" page_up 20
 assert_output "0" shellframe_sel_cursor "t"
 
-test_begin "sel_move: empty list — no crash"
+ptyunit_test_begin "sel_move: empty list — no crash"
 shellframe_sel_init "t" 0
 shellframe_sel_move "t" down
 shellframe_sel_move "t" up
@@ -103,26 +103,26 @@ assert_output "0" shellframe_sel_cursor "t"
 
 # ── shellframe_sel_toggle ──────────────────────────────────────────────────────
 
-test_begin "sel_toggle: toggles cursor item on"
+ptyunit_test_begin "sel_toggle: toggles cursor item on"
 shellframe_sel_init "t" 5
 shellframe_sel_toggle "t"
 shellframe_sel_is_selected "t" 0 && result="yes" || result="no"
 assert_eq "yes" "$result" "item 0 should be selected after toggle"
 
-test_begin "sel_toggle: double toggle returns to off"
+ptyunit_test_begin "sel_toggle: double toggle returns to off"
 shellframe_sel_init "t" 5
 shellframe_sel_toggle "t"
 shellframe_sel_toggle "t"
 shellframe_sel_is_selected "t" 0 && result="yes" || result="no"
 assert_eq "no" "$result" "item 0 deselected after double toggle"
 
-test_begin "sel_toggle: toggle at explicit index"
+ptyunit_test_begin "sel_toggle: toggle at explicit index"
 shellframe_sel_init "t" 5
 shellframe_sel_toggle "t" 3
 shellframe_sel_is_selected "t" 3 && result="yes" || result="no"
 assert_eq "yes" "$result" "item 3 toggled explicitly"
 
-test_begin "sel_toggle: toggle multiple items independently"
+ptyunit_test_begin "sel_toggle: toggle multiple items independently"
 shellframe_sel_init "t" 5
 shellframe_sel_toggle "t" 1
 shellframe_sel_toggle "t" 3
@@ -137,18 +137,18 @@ assert_eq "yes" "$result3" "item 3 selected"
 
 # ── shellframe_sel_select_all / shellframe_sel_clear_all ──────────────────────
 
-test_begin "sel_select_all: all items selected"
+ptyunit_test_begin "sel_select_all: all items selected"
 shellframe_sel_init "t" 4
 shellframe_sel_select_all "t"
 assert_output "4" shellframe_sel_selected_count "t"
 
-test_begin "sel_clear_all: all items deselected"
+ptyunit_test_begin "sel_clear_all: all items deselected"
 shellframe_sel_init "t" 4
 shellframe_sel_select_all "t"
 shellframe_sel_clear_all "t"
 assert_output "0" shellframe_sel_selected_count "t"
 
-test_begin "sel_select_all then partial toggle"
+ptyunit_test_begin "sel_select_all then partial toggle"
 shellframe_sel_init "t" 4
 shellframe_sel_select_all "t"
 shellframe_sel_toggle "t" 1   # deselect item 1
@@ -156,18 +156,18 @@ assert_output "3" shellframe_sel_selected_count "t"
 
 # ── shellframe_sel_selected ────────────────────────────────────────────────────
 
-test_begin "sel_selected: empty selection prints blank line"
+ptyunit_test_begin "sel_selected: empty selection prints blank line"
 shellframe_sel_init "t" 5
 result=$(shellframe_sel_selected "t")
 assert_eq "" "${result%$'\n'}" "empty selection is blank"
 
-test_begin "sel_selected: single item"
+ptyunit_test_begin "sel_selected: single item"
 shellframe_sel_init "t" 5
 shellframe_sel_toggle "t" 2
 result=$(shellframe_sel_selected "t")
 assert_eq "2" "${result%$'\n'}" "single selected item"
 
-test_begin "sel_selected: multiple items in index order"
+ptyunit_test_begin "sel_selected: multiple items in index order"
 shellframe_sel_init "t" 5
 shellframe_sel_toggle "t" 0
 shellframe_sel_toggle "t" 2
@@ -177,13 +177,13 @@ assert_eq "0 2 4" "${result%$'\n'}" "multiple selected items in order"
 
 # ── shellframe_sel_count ───────────────────────────────────────────────────────
 
-test_begin "sel_count: reports init count"
+ptyunit_test_begin "sel_count: reports init count"
 shellframe_sel_init "t" 7
 assert_output "7" shellframe_sel_count "t"
 
 # ── context isolation ──────────────────────────────────────────────────────────
 
-test_begin "context isolation: two contexts are independent"
+ptyunit_test_begin "context isolation: two contexts are independent"
 shellframe_sel_init "ctx_a" 5
 shellframe_sel_init "ctx_b" 3
 shellframe_sel_move "ctx_a" down
@@ -198,9 +198,9 @@ assert_eq "no" "$res" "ctx_b item 1 not selected (independent)"
 
 # ── invalid ctx rejected ───────────────────────────────────────────────────────
 
-test_begin "invalid ctx: rejected with error"
+ptyunit_test_begin "invalid ctx: rejected with error"
 result=0
 shellframe_sel_init "bad ctx" 5 2>/dev/null && result=0 || result=1
 assert_eq "1" "$result" "invalid ctx name returns error"
 
-test_summary
+ptyunit_test_summary

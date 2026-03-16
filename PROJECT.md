@@ -184,6 +184,7 @@ _Last updated: 2026-03-15_
   - `src/widgets/input-field.sh`: single-line edit using cursor.sh, all standard edit keys, mask mode
   - `src/widgets/list.sh`: scrollable list using selection.sh + scroll.sh, optional multiselect
   - Key decisions: `shellframe_sel_move ctx down` always moves 1 step (page_size only applies to page_up/page_down); field scroll is computed at render time from cursor position
-- **ptyunit open-source repo created** (https://github.com/fissible/ptyunit): PROJECT.md and README.md committed; 11 GitHub issues created for the full extraction plan. New unit tests written in shellframe can continue using local `tests/assert.sh` — migration to ptyunit is a mechanical rename when Phase 1 of ptyunit is done.
+- **ptyunit open-source repo created** (https://github.com/fissible/ptyunit): all phases complete, Docker matrix 3/3 green. Shellframe now uses ptyunit as a git submodule (`tests/ptyunit/`); `tests/assert.sh`, `tests/run.sh`, `tests/pty_run.py` removed. Run tests with `bash tests/ptyunit/run.sh`.
 - **Phase 7 planned**: platform enhancements (input hardening, dirty-region + framebuffer diff rendering, mouse support) added to PROJECT.md. Migration rationale and two-stage rendering roadmap documented in `src/screen.sh`. GitHub issues for Phase 7 tasks A–F not yet created (marked `#TBD`).
-- **Next session: Phase 3 remaining — #14 Modal/dialog (deps: #3 focus, #9 panel). Phase 4 app shell (#18) follows. All deps for both are now satisfied. Phase 7 GitHub issues can be created any time (independent of Phase 3/4 work).**
+- **ptyunit migration complete**: shellframe now sources `tests/ptyunit/` (git submodule); 352/352 assertions pass (330 unit + 22 integration). Run with `bash tests/ptyunit/run.sh`.
+- **Next session: Phase 3 remaining — #14 Modal/dialog (deps: #3 focus, #9 panel). Phase 4 app shell (#18) follows. All deps for both are now satisfied.**

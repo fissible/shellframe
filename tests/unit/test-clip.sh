@@ -7,42 +7,42 @@ SHELLFRAME_DIR="$(cd "$TESTS_DIR/.." && pwd)"
 
 source "$SHELLFRAME_DIR/src/draw.sh"   # for SHELLFRAME_BOLD, SHELLFRAME_RESET, etc.
 source "$SHELLFRAME_DIR/src/clip.sh"
-source "$TESTS_DIR/assert.sh"
+source "$TESTS_DIR/ptyunit/assert.sh"
 
 # ── shellframe_str_len ─────────────────────────────────────────────────────────
 
-test_begin "str_len: empty string"
+ptyunit_test_begin "str_len: empty string"
 assert_output "0" shellframe_str_len ""
 
-test_begin "str_len: ASCII string"
+ptyunit_test_begin "str_len: ASCII string"
 assert_output "5" shellframe_str_len "hello"
 
-test_begin "str_len: longer string"
+ptyunit_test_begin "str_len: longer string"
 assert_output "11" shellframe_str_len "hello world"
 
 # ── shellframe_str_clip — no-op (string fits) ──────────────────────────────────
 
-test_begin "str_clip: exact fit — unchanged"
+ptyunit_test_begin "str_clip: exact fit — unchanged"
 assert_output "hello" shellframe_str_clip "hello" "hello" 5
 
-test_begin "str_clip: string shorter than width — unchanged"
+ptyunit_test_begin "str_clip: string shorter than width — unchanged"
 assert_output "hi" shellframe_str_clip "hi" "hi" 10
 
-test_begin "str_clip: empty string — unchanged"
+ptyunit_test_begin "str_clip: empty string — unchanged"
 assert_output "" shellframe_str_clip "" "" 5
 
-test_begin "str_clip: width zero — prints nothing"
+ptyunit_test_begin "str_clip: width zero — prints nothing"
 assert_output "" shellframe_str_clip "hello" "hello" 0
 
 # ── shellframe_str_clip — truncation (plain text) ──────────────────────────────
 
-test_begin "str_clip: plain text — hard clip"
+ptyunit_test_begin "str_clip: plain text — hard clip"
 assert_output "hello" shellframe_str_clip "hello world" "hello world" 5
 
-test_begin "str_clip: plain text — clip to 1"
+ptyunit_test_begin "str_clip: plain text — clip to 1"
 assert_output "h" shellframe_str_clip "hello" "hello" 1
 
-test_begin "str_clip: plain text — clip to exact length"
+ptyunit_test_begin "str_clip: plain text — clip to exact length"
 assert_output "hello" shellframe_str_clip "hello world" "hello world" 5
 
 # ── shellframe_str_clip — ANSI rendered strings ────────────────────────────────
@@ -56,20 +56,20 @@ _BOLD=$'\033[1m'
 _GREEN=$'\033[32m'
 _RESET=$'\033[0m'
 
-test_begin "str_clip: ANSI rendered — fits, unchanged"
+ptyunit_test_begin "str_clip: ANSI rendered — fits, unchanged"
 raw="hi"
 rendered="${_BOLD}hi${_RESET}"
 result=$(shellframe_str_clip "$raw" "$rendered" 5)
 assert_eq "$rendered" "$result" "ANSI string fits — should be unchanged"
 
-test_begin "str_clip: plain text — no reset appended when no ANSI present"
+ptyunit_test_begin "str_clip: plain text — no reset appended when no ANSI present"
 # Plain-text rendered: clipped output should be a clean substring, no extra bytes.
 raw="hello world"
 rendered="hello world"
 result=$(shellframe_str_clip "$raw" "$rendered" 5)
 assert_eq "hello" "$result" "plain text clip — no reset appended"
 
-test_begin "str_clip: ANSI rendered — clip appends reset to prevent color bleed"
+ptyunit_test_begin "str_clip: ANSI rendered — clip appends reset to prevent color bleed"
 # ANSI-colored rendered: truncating mid-ANSI region must append reset.
 raw="hello world"
 rendered="${_GREEN}hello world${_RESET}"
@@ -81,7 +81,7 @@ assert_eq "hello" "$result_vis" "ANSI clip — visible content is 5 chars"
 # Reset must be present to prevent color bleed
 assert_contains "$result" $'\033[0m' "ANSI clip — reset appended"
 
-test_begin "str_clip: ANSI rendered — ANSI before clip point preserved"
+ptyunit_test_begin "str_clip: ANSI rendered — ANSI before clip point preserved"
 # rendered: BOLD prefix + text; raw: just text
 # Clip at 3 chars: ESC sequence + first 3 chars of text + reset
 raw="abcde"
@@ -95,54 +95,54 @@ assert_eq "abc" "$result_no_ansi" "clip visible content is exactly 3 chars"
 
 # ── shellframe_str_clip_ellipsis — no-op (string fits) ────────────────────────
 
-test_begin "str_clip_ellipsis: exact fit — unchanged (no ellipsis)"
+ptyunit_test_begin "str_clip_ellipsis: exact fit — unchanged (no ellipsis)"
 assert_output "hello" shellframe_str_clip_ellipsis "hello" "hello" 5
 
-test_begin "str_clip_ellipsis: string shorter than width — unchanged"
+ptyunit_test_begin "str_clip_ellipsis: string shorter than width — unchanged"
 assert_output "hi" shellframe_str_clip_ellipsis "hi" "hi" 10
 
-test_begin "str_clip_ellipsis: width zero — prints nothing"
+ptyunit_test_begin "str_clip_ellipsis: width zero — prints nothing"
 assert_output "" shellframe_str_clip_ellipsis "hello" "hello" 0
 
-test_begin "str_clip_ellipsis: width one — prints only ellipsis"
+ptyunit_test_begin "str_clip_ellipsis: width one — prints only ellipsis"
 assert_output "…" shellframe_str_clip_ellipsis "hello" "hello" 1
 
 # ── shellframe_str_clip_ellipsis — truncation ─────────────────────────────────
 
-test_begin "str_clip_ellipsis: plain text — clip with ellipsis"
+ptyunit_test_begin "str_clip_ellipsis: plain text — clip with ellipsis"
 result=$(shellframe_str_clip_ellipsis "hello world" "hello world" 6)
 # "hello " (5 chars) + "…" — but clip walk emits "hello" then reset then "…"
 # Strip the injected reset to check visible content
 result_vis="${result//$'\033[0m'/}"
 assert_eq "hello…" "$result_vis" "ellipsis clip visible content"
 
-test_begin "str_clip_ellipsis: width 2 — one char + ellipsis"
+ptyunit_test_begin "str_clip_ellipsis: width 2 — one char + ellipsis"
 result=$(shellframe_str_clip_ellipsis "hello" "hello" 2)
 result_vis="${result//$'\033[0m'/}"
 assert_eq "h…" "$result_vis" "width 2 gives one char + ellipsis"
 
 # ── shellframe_str_pad ─────────────────────────────────────────────────────────
 
-test_begin "str_pad: exact width — no padding"
+ptyunit_test_begin "str_pad: exact width — no padding"
 assert_output "hello" shellframe_str_pad "hello" "hello" 5
 
-test_begin "str_pad: shorter — pads with spaces"
+ptyunit_test_begin "str_pad: shorter — pads with spaces"
 result=$(shellframe_str_pad "hi" "hi" 5)
 assert_eq "hi   " "$result" "padded to 5"
 
-test_begin "str_pad: empty string — all spaces"
+ptyunit_test_begin "str_pad: empty string — all spaces"
 result=$(shellframe_str_pad "" "" 4)
 assert_eq "    " "$result" "empty string padded to 4 spaces"
 
-test_begin "str_pad: longer than width — no truncation"
+ptyunit_test_begin "str_pad: longer than width — no truncation"
 result=$(shellframe_str_pad "toolong" "toolong" 4)
 assert_eq "toolong" "$result" "wider string not truncated"
 
-test_begin "str_pad: ANSI rendered — width from raw"
+ptyunit_test_begin "str_pad: ANSI rendered — width from raw"
 raw="hi"
 rendered="${_GREEN}hi${_RESET}"
 result=$(shellframe_str_pad "$raw" "$rendered" 5)
 expected="${_GREEN}hi${_RESET}   "
 assert_eq "$expected" "$result" "ANSI rendered padded by raw width"
 
-test_summary
+ptyunit_test_summary

@@ -8,7 +8,7 @@ SHELLFRAME_DIR="$(cd "$TESTS_DIR/.." && pwd)"
 
 source "$SHELLFRAME_DIR/src/clip.sh"
 source "$SHELLFRAME_DIR/src/panel.sh"
-source "$TESTS_DIR/assert.sh"
+source "$TESTS_DIR/ptyunit/assert.sh"
 
 # ── shellframe_panel_inner: single border style ───────────────────────────────
 
@@ -19,29 +19,29 @@ _inner() {
     printf '%d %d %d %d' "$t" "$l" "$w" "$h"
 }
 
-test_begin "panel_inner: single — top offset by 1"
+ptyunit_test_begin "panel_inner: single — top offset by 1"
 result=$(_inner 1 1 20 10)
 it=$(printf '%s' "$result" | awk '{print $1}')
 assert_eq "2" "$it" "inner top = outer top + 1"
 
-test_begin "panel_inner: single — left offset by 1"
+ptyunit_test_begin "panel_inner: single — left offset by 1"
 result=$(_inner 1 1 20 10)
 il=$(printf '%s' "$result" | awk '{print $2}')
 assert_eq "2" "$il" "inner left = outer left + 1"
 
-test_begin "panel_inner: single — width reduced by 2"
+ptyunit_test_begin "panel_inner: single — width reduced by 2"
 result=$(_inner 1 1 20 10)
 iw=$(printf '%s' "$result" | awk '{print $3}')
 assert_eq "18" "$iw" "inner width = outer width - 2"
 
-test_begin "panel_inner: single — height reduced by 2"
+ptyunit_test_begin "panel_inner: single — height reduced by 2"
 result=$(_inner 1 1 20 10)
 ih=$(printf '%s' "$result" | awk '{print $4}')
 assert_eq "8" "$ih" "inner height = outer height - 2"
 
 # ── shellframe_panel_inner: none border style ─────────────────────────────────
 
-test_begin "panel_inner: none — inner equals outer"
+ptyunit_test_begin "panel_inner: none — inner equals outer"
 SHELLFRAME_PANEL_STYLE="none"
 _it="" _il="" _iw="" _ih=""
 shellframe_panel_inner 3 5 20 10 _it _il _iw _ih
@@ -52,7 +52,7 @@ assert_eq "10" "$_ih" "none: height unchanged"
 
 # ── shellframe_panel_inner: non-origin region ─────────────────────────────────
 
-test_begin "panel_inner: non-origin region with single border"
+ptyunit_test_begin "panel_inner: non-origin region with single border"
 SHELLFRAME_PANEL_STYLE="single"
 _ot="" _ol="" _ow="" _oh=""
 shellframe_panel_inner 5 10 30 15 _ot _ol _ow _oh
@@ -63,25 +63,25 @@ assert_eq "13" "$_oh" "height = 15-2"
 
 # ── shellframe_panel_on_focus ─────────────────────────────────────────────────
 
-test_begin "panel_on_focus: sets FOCUSED=1"
+ptyunit_test_begin "panel_on_focus: sets FOCUSED=1"
 SHELLFRAME_PANEL_FOCUSED=0
 shellframe_panel_on_focus 1
 assert_eq "1" "$SHELLFRAME_PANEL_FOCUSED" "focused set to 1"
 
-test_begin "panel_on_focus: sets FOCUSED=0"
+ptyunit_test_begin "panel_on_focus: sets FOCUSED=0"
 SHELLFRAME_PANEL_FOCUSED=1
 shellframe_panel_on_focus 0
 assert_eq "0" "$SHELLFRAME_PANEL_FOCUSED" "focused set to 0"
 
 # ── shellframe_panel_on_key ───────────────────────────────────────────────────
 
-test_begin "panel_on_key: always returns 1 (not handled)"
+ptyunit_test_begin "panel_on_key: always returns 1 (not handled)"
 shellframe_panel_on_key "x"
 assert_eq "1" "$?" "on_key returns 1"
 
 # ── shellframe_panel_size ─────────────────────────────────────────────────────
 
-test_begin "panel_size: min 2x2, preferred unconstrained"
+ptyunit_test_begin "panel_size: min 2x2, preferred unconstrained"
 assert_output "2 2 0 0" shellframe_panel_size
 
-test_summary
+ptyunit_test_summary

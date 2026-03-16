@@ -50,7 +50,7 @@ for _i in "${!_LABELS[@]}"; do
     fi
 
     # Run (--rm cleans up the container; no -t since output is captured)
-    if docker run --rm "$_tag" bash tests/run.sh; then
+    if docker run --rm "$_tag" bash tests/ptyunit/run.sh; then
         _results+=("$_label: PASS")
         (( _pass++ ))
     else

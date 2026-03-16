@@ -87,7 +87,7 @@ tests/
 
 Run with: `bash tests/docker/run-matrix.sh`
 
-Each container mounts the repo and runs `tests/run.sh`. A failure in any
+Each container mounts the repo and runs `tests/ptyunit/run.sh`. A failure in any
 version is a bug. The matrix must pass before merging changes to `src/`.
 
 ## Coding conventions

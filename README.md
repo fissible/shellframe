@@ -134,9 +134,7 @@ shellframe/
 │   ├── confirm.sh         # confirm modal demo
 │   └── alert.sh           # alert modal demo
 └── tests/
-    ├── run.sh             # test runner
-    ├── assert.sh          # assertion helpers
-    ├── pty_run.py         # PTY-based integration runner
+    ├── ptyunit/           # git submodule — test runner, assert.sh, pty_run.py
     ├── docker/            # cross-version portability matrix (bash 3.2, 4.4, 5.x)
     ├── unit/
     └── integration/
