@@ -57,9 +57,9 @@
 #   Enter                — insert newline
 #   Backspace            — delete char before cursor; at col 0 join with prev line
 #   Delete               — delete char at cursor; at EOL join with next line
-#   Ctrl-K               — kill to end of line; at EOL join with next line
-#   Ctrl-U               — kill to start of line
-#   Ctrl-W               — kill word left
+#   Ctrl-K               — clear to end of line; at EOL join with next line
+#   Ctrl-U               — clear to start of line
+#   Ctrl-W               — clear last word
 #   Ctrl-D               — submit (rc=2, SHELLFRAME_EDITOR_RESULT set)
 
 SHELLFRAME_EDITOR_CTX="editor"

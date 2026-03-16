@@ -13,9 +13,9 @@
 #   Enter            — insert newline
 #   Backspace        — delete before cursor; joins lines at col 0
 #   Delete           — delete at cursor;    joins lines at EOL
-#   Ctrl-K           — kill to end of line
-#   Ctrl-U           — kill to start of line
-#   Ctrl-W           — kill word left
+#   Ctrl-K           — clear to end of line
+#   Ctrl-U           — clear to start of line
+#   Ctrl-W           — clear last word
 #   Ctrl-D           — submit (prints text to stdout, exits)
 #   Ctrl-C           — quit without output
 
@@ -84,7 +84,7 @@ _draw() {
 
     # Footer bar (last row)
     printf '\033[%d;1H\033[2K\033[2m%-*s\033[0m' "$rows" "$cols" \
-        "  ↑↓←→ navigate  Enter newline  Bksp/Del delete  Ctrl-K/U/W kill  Ctrl-D submit" \
+        "  ↑↓←→ navigate  Enter newline  Bksp/Del delete  Ctrl-K/U/W clear  Ctrl-D submit" \
         >/dev/tty
 }
 
