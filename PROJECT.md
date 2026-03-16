@@ -165,7 +165,7 @@ Before adding any new widget or screen:
 ## Session handoff notes
 > Update this section at the end of each session.
 
-_Last updated: 2026-03-16 (session 2)_
+_Last updated: 2026-03-16 (session 3)_
 - shellql repo stubbed and pushed to GitHub (https://github.com/fissible/shellql)
 - All 28 GitHub issues created: shellframe #1–18, shellql #1–9
 - PROJECT.md is the master tracking sheet; shellql/PLAN.md cross-references shellframe issues
@@ -194,4 +194,5 @@ _Last updated: 2026-03-16 (session 2)_
   - Render flicker fix: `shellframe_editor_render` now accumulates entire frame into a string and writes once (`printf '%s' "$_buf" >/dev/tty`); per-character cursor-row padding loop replaced with `printf '%*s'`; `_shellframe_ed_vrow_count` gained output-var form to eliminate `$()` subshell in page navigation.
   - Footer/doc labels: Ctrl-K/U/W changed from "kill" to "clear" (plain English).
   - Wrap cursor boundary fix: vrow movement functions previously clamped `new_col` to `seg_start + seg_len` (exclusive end), which equals the start of the next segment; `cursor_to_vrow`'s "last matching segment wins" rule then resolved the position to the wrong visual row, causing cursor jumps and invisible-character artifacts. Fixed by clamping intermediate segments to `seg_start + seg_len - 1` and last segments to `line_len`. 592/592 assertions.
+- **Editor goal column (2026-03-16)**: `_SHELLFRAME_ED_${ctx}_GOAL_COL` added to `shellframe_editor_init`. All four vertical movement functions (move_up, move_down, page_up, page_down) store vis_col on first move and reuse it on subsequent vertical moves, so the cursor no longer snaps to col 0 after passing through blank or shorter lines. Non-vertical keys reset GOAL_COL to -1. 610/610 assertions (+18 new goal-col tests).
 - **Next session: #17 Data grid (XL, last Phase 3 item) — then M1 milestone closed.**
