@@ -77,11 +77,11 @@ Start every new session by reading this file. Update task status here when work 
 
 | # | Task                             | Effort | GH Issue | Status | Deps |
 |---|----------------------------------|--------|----------|--------|------|
-| 19 | Welcome screen (recent files list, open action, empty state) | M | shellql#TBD | open | 11,18 |
-| 20 | Schema browser (sidebar tree + main pane detail)            | M | shellql#TBD | open | 15,18 |
-| 21 | Table view (tab bar, data grid, structure tab)              | L | shellql#TBD | open | 13,17,18 |
-| 22 | Query screen (editor + results grid + status area)          | M | shellql#TBD | open | 16,17,18 |
-| 23 | Record inspector (modal key/value scroll panel)             | S | shellql#TBD | open | 14,18 |
+| 19 | Welcome screen (recent files list, open action, empty state) | M | [shellql#1](https://github.com/fissible/shellql/issues/1) | closed | 11,18 |
+| 20 | Schema browser (sidebar tree + main pane detail)            | M | [shellql#2](https://github.com/fissible/shellql/issues/2) | closed | 15,18 |
+| 21 | Table view (tab bar, data grid, structure tab)              | L | [shellql#3](https://github.com/fissible/shellql/issues/3) | closed | 13,17,18 |
+| 22 | Query screen (editor + results grid + status area)          | M | [shellql#4](https://github.com/fissible/shellql/issues/4) | open | 16,17,18 |
+| 23 | Record inspector (modal key/value scroll panel)             | S | [shellql#5](https://github.com/fissible/shellql/issues/5) | open | 14,18 |
 
 ---
 
@@ -120,7 +120,7 @@ Start every new session by reading this file. Update task status here when work 
 | Milestone | Condition | Status |
 |-----------|-----------|--------|
 | **M1: Shellframe ready** | Phase 1–4 all closed | open |
-| **M2: Mock app complete** | Phase 5 all closed, mock screens working | open |
+| **M2: Mock app complete** | Phase 5 all closed, mock screens working | in progress (3/5 screens done) |
 | **M3: ShellQL v0.1** | Phase 6 all closed, integration tests passing | open |
 | **M4: Platform enhancements** | Phase 7 all closed; mouse, diff rendering, full F-key support | open |
 
@@ -198,5 +198,9 @@ _Last updated: 2026-03-16 (session 5)_
 - **Phase 3 #17 Data grid complete** (2026-03-16): `src/widgets/grid.sh` — v2 composable data grid. Flat 1D `SHELLFRAME_GRID_DATA[row*COLS+col]` array. Sticky header (bold/white labels, only drawn when height ≥ 3 and headers set). `│` column separators between every pair of adjacent visible columns; `SHELLFRAME_GRID_PK_COLS` (int, default 0): separator after column PK_COLS-1 becomes `┃` (data rows) / `╋` (header junction) to visually mark the PK boundary. Header `─` separator row uses `┼`/`╋` junctions at separator x-positions. V scroll via selection.sh + scroll.sh row axis; H scroll via scroll.sh column axis (Left/Right pan 1 column). Conservative `vcols=1` init; `shellframe_scroll_resize` in render updates actual visible-column count. Cursor row: reverse video. Optional multiselect (Space). 52/52 assertions. 640/640 total.
 - **M1 milestone achieved**: Phase 3 fully complete (#8–#17 all closed). Phase 4 (#18 app shell) was already closed. All of Phases 1–4 are done.
 - **Widget showcase added (2026-03-16)**: `docs/showcase.md` — visual gallery with ASCII art + code for every widget (confirm, alert, action-list, list single/multi-select, modal prompt, editor, shellframe_app multi-screen, shellframe_shell composable pane layout). Linked from README "Going deeper". 662/662 assertions still pass.
-- **Next session: Phase 5 mock ShellQL screens** (#19 welcome, #20 schema browser, #21 table view, #22 query screen, #23 record inspector). These live in the shellql repo (`~/lib/fissible/shellql`). Start with #19 (welcome screen) — depends on list (#11) and shell (#18).
-- **Note**: `src/widgets/grid.sh` and `src/widgets/tab-bar.sh` have unstaged local changes (right-border rendering polish, focus-aware tab highlight) — not yet committed.
+- **Phase 5 progress (2026-03-16)**: shellql#1 welcome, shellql#2 schema browser, shellql#3 table view all closed. App navigates welcome → schema → table → schema.
+  - Grid widget polished: H-scroll `_trailing_vis_cols` fix, 1-char left cell padding, right end-of-data `│`/`┘` border, cursor highlight suppressed when unfocused.
+  - Tab bar: inactive=reverse video (persistent white bar), active=bold+clear bg, fill=reverse video.
+  - Table screen: gap row below tab bar; ↓ from tab bar focuses body; ↑ at top of body returns focus to tab bar; `[`/`]` switch tabs from anywhere.
+  - All shellframe widget changes committed in shellframe repo.
+- **Next task: Phase 5.5 — Record inspector** ([shellql#5](https://github.com/fissible/shellql/issues/5)): modal or side panel, key/value layout from selected grid row, scroll for long values. `_shql_TABLE_body_action` hook already in place (Enter on data row triggers it).
