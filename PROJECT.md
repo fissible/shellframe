@@ -98,6 +98,16 @@ Start every new session by reading this file. Update task status here when work 
 
 ---
 
+## Phase 3.5 — New Widgets (shellframe)
+> Additional interactive widgets that build on the Phase 1–3 primitives.
+> All dependencies are already shipped — pure widget work.
+
+| # | Task | Effort | GH Issue | Status | Deps |
+|---|------|--------|----------|--------|------|
+| 22 | Menu bar: horizontal bar + dropdown panel + submenu nesting; v2 contract (`init/render/on_key/on_focus/size`); bash 3.2-compatible label→variable naming; unit + integration tests + showcase entry | L | [#22](https://github.com/fissible/shellframe/issues/22) | open | 4, 5, 7, 9 |
+
+---
+
 ## Phase 7 — Platform Enhancements (shellframe)
 > Keyboard hardening, diff rendering, and mouse support.
 > Independent of ShellQL app phases — can be tackled in any order after Phase 4.
@@ -211,4 +221,5 @@ _Last updated: 2026-03-16 (session 5)_
   - Tab-bar and shell (unit-tested only, no integration example yet) remain a known gap
   - Confirm/alert/action-list have integration tests but no unit tests; recommended path is refactor to expose v2 internals (`_render` + `_on_key`) and keep monolithic wrappers — unit-testable state machine, backwards-compatible callers, aligns with LEGO philosophy
   - 674/674 assertions pass
+- **Phase 3.5 #22 Menu bar backlogged (2026-03-17)**: [shellframe#22](https://github.com/fissible/shellframe/issues/22) — horizontal menu bar + dropdown + submenu. Deps: panel.sh, clip.sh, selection.sh, input/keymap (all shipped). Bash 3.2 label→variable naming convention (`SHELLFRAME_MENU_FILE=(...)`). Result path in `SHELLFRAME_MENU_RESULT` (e.g. `"File|Open Recent|file1.db"`). Effort L. Deliverables: `src/widgets/menu-bar.sh`, unit tests, example, integration tests, showcase entry.
 - **Next task: Phase 5.5 — Record inspector** ([shellql#5](https://github.com/fissible/shellql/issues/5)): modal or side panel, key/value layout from selected grid row, scroll for long values. `_shql_TABLE_body_action` hook already in place (Enter on data row triggers it).
