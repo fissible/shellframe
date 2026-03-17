@@ -204,4 +204,11 @@ _Last updated: 2026-03-16 (session 5)_
   - Table screen: gap row below tab bar; ↓ from tab bar focuses body; ↑ at top of body returns focus to tab bar; `[`/`]` switch tabs from anywhere.
   - All shellframe widget changes committed in shellframe repo.
 - **showcase.md corrections (2026-03-16)**: Fixed two bugs — `if (( rc == 0 ))` → `if (( rc == 2 ))` in list example (Enter returns 2), `shellframe_editor_text` → `shellframe_editor_get_text`. Added `meta="$5"` to action-list `_draw_row` signature; inline comment on `shellframe_list_init` second arg.
+- **Test coverage audit (2026-03-17)**:
+  - `shellframe_app` has zero coverage — backlogged as [shellframe#21](https://github.com/fissible/shellframe/issues/21) (effort S)
+  - Added `examples/modal.sh` + `tests/integration/test-modal.sh` (6 assertions) and `tests/integration/test-editor.sh` (6 assertions)
+  - Added `assert_not_contains` to ptyunit submodule
+  - Tab-bar and shell (unit-tested only, no integration example yet) remain a known gap
+  - Confirm/alert/action-list have integration tests but no unit tests; recommended path is refactor to expose v2 internals (`_render` + `_on_key`) and keep monolithic wrappers — unit-testable state machine, backwards-compatible callers, aligns with LEGO philosophy
+  - 674/674 assertions pass
 - **Next task: Phase 5.5 — Record inspector** ([shellql#5](https://github.com/fissible/shellql/issues/5)): modal or side panel, key/value layout from selected grid row, scroll for long values. `_shql_TABLE_body_action` hook already in place (Enter on data row triggers it).
