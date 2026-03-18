@@ -297,22 +297,40 @@ shellframe_shell() {
             local _focused
             _shellframe_shell_focus_owner _focused
 
-            # ── Tab: advance focus ──────────────────────────────────────────
+            # ── Tab: offer to on_key first; cycle focus only if unhandled ─
             if [[ "$_key" == "$_k_tab" ]]; then
-                [[ -n "$_focused" ]] && \
-                    declare -f "${_prefix}_${_current}_${_focused}_on_focus" >/dev/null 2>&1 && \
-                    "${_prefix}_${_current}_${_focused}_on_focus" 0 || true
-                _shellframe_shell_focus_next
+                local _tab_handled=0
+                if [[ -n "$_focused" ]] && \
+                   declare -f "${_prefix}_${_current}_${_focused}_on_key" >/dev/null 2>&1; then
+                    if "${_prefix}_${_current}_${_focused}_on_key" "$_key"; then
+                        _tab_handled=1
+                    fi
+                fi
+                if (( ! _tab_handled )); then
+                    [[ -n "$_focused" ]] && \
+                        declare -f "${_prefix}_${_current}_${_focused}_on_focus" >/dev/null 2>&1 && \
+                        "${_prefix}_${_current}_${_focused}_on_focus" 0 || true
+                    _shellframe_shell_focus_next
+                fi
                 _shellframe_shell_draw "$_prefix" "$_current"
                 continue
             fi
 
-            # ── Shift-Tab: retreat focus ────────────────────────────────────
+            # ── Shift-Tab: offer to on_key first; retreat focus if unhandled
             if [[ "$_key" == "$_k_shift_tab" ]]; then
-                [[ -n "$_focused" ]] && \
-                    declare -f "${_prefix}_${_current}_${_focused}_on_focus" >/dev/null 2>&1 && \
-                    "${_prefix}_${_current}_${_focused}_on_focus" 0 || true
-                _shellframe_shell_focus_prev
+                local _shift_tab_handled=0
+                if [[ -n "$_focused" ]] && \
+                   declare -f "${_prefix}_${_current}_${_focused}_on_key" >/dev/null 2>&1; then
+                    if "${_prefix}_${_current}_${_focused}_on_key" "$_key"; then
+                        _shift_tab_handled=1
+                    fi
+                fi
+                if (( ! _shift_tab_handled )); then
+                    [[ -n "$_focused" ]] && \
+                        declare -f "${_prefix}_${_current}_${_focused}_on_focus" >/dev/null 2>&1 && \
+                        "${_prefix}_${_current}_${_focused}_on_focus" 0 || true
+                    _shellframe_shell_focus_prev
+                fi
                 _shellframe_shell_draw "$_prefix" "$_current"
                 continue
             fi
