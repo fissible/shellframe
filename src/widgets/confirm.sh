@@ -80,59 +80,19 @@ shellframe_confirm() {
     (( _r0 < 1 )) && _r0=1
     (( _c0 < 1 )) && _c0=1
 
+    # Pre-compute button row for partial draw.
+    # Derivation: top border(+0) blank(+1) details(+n) [blank-sep(+1 if n>0)]
+    #             question(+1) blank(+1) buttons → constant = 4
+    local _btn_row=$(( _r0 + 4 + _n_details ))
+    (( _n_details > 0 )) && (( _btn_row++ )) || true
+
+    local _dirty=2   # 2=full  1=partial(button row only)  0=none
+
     # ── row renderer ─────────────────────────────────────────────────────────
-    _cf_draw() {
-        shellframe_screen_clear
 
-        local _row="$_r0"
-        local _i
-
-        # top border
-        printf '\033[%d;%dH%b+' "$_row" "$_c0" "$SHELLFRAME_GRAY"
-        for (( _i=0; _i<_inner; _i++ )); do printf '-'; done
-        printf '+%b' "$SHELLFRAME_RESET"
-        (( _row++ ))
-
-        # blank
-        printf '\033[%d;%dH%b|%*s|%b' "$_row" "$_c0" "$SHELLFRAME_GRAY" "$_inner" "" "$SHELLFRAME_RESET"
-        (( _row++ ))
-
-        # detail lines
-        if (( _n_details > 0 )); then
-            for _line in "${_details[@]}"; do
-                local _ll="${#_line}"
-                local _rpad=$(( _inner - _ll - 2 ))
-                (( _rpad < 0 )) && _rpad=0
-                printf '\033[%d;%dH%b|%b  %s%*s%b|%b' \
-                    "$_row" "$_c0" \
-                    "$SHELLFRAME_GRAY" "$SHELLFRAME_RESET" \
-                    "$_line" "$_rpad" "" \
-                    "$SHELLFRAME_GRAY" "$SHELLFRAME_RESET"
-                (( _row++ ))
-            done
-            # blank separator
-            printf '\033[%d;%dH%b|%*s|%b' "$_row" "$_c0" "$SHELLFRAME_GRAY" "$_inner" "" "$SHELLFRAME_RESET"
-            (( _row++ ))
-        fi
-
-        # question (centered, bold)
-        local _ql="${#_question}"
-        local _qlpad=$(( (_inner - _ql) / 2 ))
-        local _qrpad=$(( _inner - _ql - _qlpad ))
-        printf '\033[%d;%dH%b|%b%*s%b%s%b%*s%b|%b' \
-            "$_row" "$_c0" \
-            "$SHELLFRAME_GRAY" "$SHELLFRAME_RESET" \
-            "$_qlpad" "" \
-            "$SHELLFRAME_BOLD$SHELLFRAME_WHITE" "$_question" "$SHELLFRAME_RESET" \
-            "$_qrpad" "" \
-            "$SHELLFRAME_GRAY" "$SHELLFRAME_RESET"
-        (( _row++ ))
-
-        # blank
-        printf '\033[%d;%dH%b|%*s|%b' "$_row" "$_c0" "$SHELLFRAME_GRAY" "$_inner" "" "$SHELLFRAME_RESET"
-        (( _row++ ))
-
-        # buttons: "[ Yes ]" (7) + 6-char gap + "[ No  ]" (7) = 20 raw chars
+    # Render the button row at absolute terminal row $1.
+    _cf_draw_buttons() {
+        local _brow="$1"
         local _yes_str _no_str
         if (( _selected == 0 )); then
             _yes_str="${SHELLFRAME_BOLD}${SHELLFRAME_WHITE}[ Yes ]${SHELLFRAME_RESET}"
@@ -141,31 +101,98 @@ shellframe_confirm() {
             _yes_str="${SHELLFRAME_GRAY}[ Yes ]${SHELLFRAME_RESET}"
             _no_str="${SHELLFRAME_BOLD}${SHELLFRAME_WHITE}[ No  ]${SHELLFRAME_RESET}"
         fi
-        local _btn_raw=20           # 7 + 6 + 7
+        local _btn_raw=20
         local _blpad=$(( (_inner - _btn_raw) / 2 ))
         local _brpad=$(( _inner - _btn_raw - _blpad ))
         (( _blpad < 1 )) && _blpad=1
         (( _brpad < 0 )) && _brpad=0
-        printf '\033[%d;%dH%b|%b' "$_row" "$_c0" "$SHELLFRAME_GRAY" "$SHELLFRAME_RESET"
+        printf '\033[%d;%dH%b|%b' "$_brow" "$_c0" "$SHELLFRAME_GRAY" "$SHELLFRAME_RESET"
         printf '%*s%b      %b%*s' "$_blpad" "" "$_yes_str" "$_no_str" "$_brpad" ""
         printf '%b|%b' "$SHELLFRAME_GRAY" "$SHELLFRAME_RESET"
-        (( _row++ ))
+    }
 
-        # blank
-        printf '\033[%d;%dH%b|%*s|%b' "$_row" "$_c0" "$SHELLFRAME_GRAY" "$_inner" "" "$SHELLFRAME_RESET"
-        (( _row++ ))
+    _cf_draw() {
+        if (( _dirty == 0 )); then return; fi
 
-        # bottom border
-        printf '\033[%d;%dH%b+' "$_row" "$_c0" "$SHELLFRAME_GRAY"
-        for (( _i=0; _i<_inner; _i++ )); do printf '-'; done
-        printf '+%b' "$SHELLFRAME_RESET"
-        (( _row++ ))
+        if (( _dirty == 2 )); then
+            # ── Full redraw ───────────────────────────────────────────────
+            shellframe_screen_clear
 
-        # footer hint
-        local _hint="←/→ select   y/n quick   Enter confirm"
-        local _hcol=$(( _c0 + (_box_w - ${#_hint}) / 2 ))
-        (( _hcol < 1 )) && _hcol=1
-        printf '\033[%d;%dH%b%s%b' "$_row" "$_hcol" "$SHELLFRAME_GRAY" "$_hint" "$SHELLFRAME_RESET"
+            local _row="$_r0"
+            local _i
+
+            # top border
+            printf '\033[%d;%dH%b+' "$_row" "$_c0" "$SHELLFRAME_GRAY"
+            for (( _i=0; _i<_inner; _i++ )); do printf '-'; done
+            printf '+%b' "$SHELLFRAME_RESET"
+            (( _row++ ))
+
+            # blank
+            printf '\033[%d;%dH%b|%*s|%b' "$_row" "$_c0" "$SHELLFRAME_GRAY" "$_inner" "" "$SHELLFRAME_RESET"
+            (( _row++ ))
+
+            # detail lines
+            local _line
+            if (( _n_details > 0 )); then
+                for _line in "${_details[@]}"; do
+                    local _ll="${#_line}"
+                    local _rpad=$(( _inner - _ll - 2 ))
+                    (( _rpad < 0 )) && _rpad=0
+                    printf '\033[%d;%dH%b|%b  %s%*s%b|%b' \
+                        "$_row" "$_c0" \
+                        "$SHELLFRAME_GRAY" "$SHELLFRAME_RESET" \
+                        "$_line" "$_rpad" "" \
+                        "$SHELLFRAME_GRAY" "$SHELLFRAME_RESET"
+                    (( _row++ ))
+                done
+                # blank separator
+                printf '\033[%d;%dH%b|%*s|%b' "$_row" "$_c0" "$SHELLFRAME_GRAY" "$_inner" "" "$SHELLFRAME_RESET"
+                (( _row++ ))
+            fi
+
+            # question (centered, bold)
+            local _ql="${#_question}"
+            local _qlpad=$(( (_inner - _ql) / 2 ))
+            local _qrpad=$(( _inner - _ql - _qlpad ))
+            printf '\033[%d;%dH%b|%b%*s%b%s%b%*s%b|%b' \
+                "$_row" "$_c0" \
+                "$SHELLFRAME_GRAY" "$SHELLFRAME_RESET" \
+                "$_qlpad" "" \
+                "$SHELLFRAME_BOLD$SHELLFRAME_WHITE" "$_question" "$SHELLFRAME_RESET" \
+                "$_qrpad" "" \
+                "$SHELLFRAME_GRAY" "$SHELLFRAME_RESET"
+            (( _row++ ))
+
+            # blank
+            printf '\033[%d;%dH%b|%*s|%b' "$_row" "$_c0" "$SHELLFRAME_GRAY" "$_inner" "" "$SHELLFRAME_RESET"
+            (( _row++ ))
+
+            # buttons (row == _btn_row)
+            _cf_draw_buttons "$_row"
+            (( _row++ ))
+
+            # blank
+            printf '\033[%d;%dH%b|%*s|%b' "$_row" "$_c0" "$SHELLFRAME_GRAY" "$_inner" "" "$SHELLFRAME_RESET"
+            (( _row++ ))
+
+            # bottom border
+            printf '\033[%d;%dH%b+' "$_row" "$_c0" "$SHELLFRAME_GRAY"
+            for (( _i=0; _i<_inner; _i++ )); do printf '-'; done
+            printf '+%b' "$SHELLFRAME_RESET"
+            (( _row++ ))
+
+            # footer hint
+            local _hint="←/→ select   y/n quick   Enter confirm"
+            local _hcol=$(( _c0 + (_box_w - ${#_hint}) / 2 ))
+            (( _hcol < 1 )) && _hcol=1
+            printf '\033[%d;%dH%b%s%b' "$_row" "$_hcol" "$SHELLFRAME_GRAY" "$_hint" "$SHELLFRAME_RESET"
+
+        else
+            # ── Partial redraw (_dirty=1): button row only ─────────────────
+            _cf_draw_buttons "$_btn_row"
+        fi
+
+        _dirty=0
     }
     _cf_draw
 
@@ -176,8 +203,10 @@ shellframe_confirm() {
 
         if   [[ "$_key" == "$SHELLFRAME_KEY_LEFT"  || "$_key" == 'h' || "$_key" == 'H' ]]; then
             _selected=0
+            _dirty=1
         elif [[ "$_key" == "$SHELLFRAME_KEY_RIGHT" || "$_key" == 'l' || "$_key" == 'L' ]]; then
             _selected=1
+            _dirty=1
         elif [[ "$_key" == 'y' || "$_key" == 'Y' ]]; then
             _retval=0; break
         elif [[ "$_key" == 'n' || "$_key" == 'N' ]]; then
