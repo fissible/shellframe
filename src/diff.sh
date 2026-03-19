@@ -26,6 +26,8 @@
 #   SHELLFRAME_DIFF_LNUMS[]   — left line number (empty if no left content)
 #   SHELLFRAME_DIFF_RNUMS[]   — right line number (empty if no right content)
 #   SHELLFRAME_DIFF_ROW_COUNT — total visual rows
+#   SHELLFRAME_DIFF_FILES[]   — file names in order of appearance
+#   SHELLFRAME_DIFF_FILE_ROWS[] — row index where each file's header starts
 #
 # ── Row types ────────────────────────────────────────────────────────────────
 #
@@ -57,6 +59,8 @@ SHELLFRAME_DIFF_RIGHT=()
 SHELLFRAME_DIFF_LNUMS=()
 SHELLFRAME_DIFF_RNUMS=()
 SHELLFRAME_DIFF_ROW_COUNT=0
+SHELLFRAME_DIFF_FILES=()        # file names in order of appearance
+SHELLFRAME_DIFF_FILE_ROWS=()    # row index where each file starts
 
 # ── shellframe_diff_clear ───────────────────────────────────────────────────
 
@@ -66,6 +70,8 @@ shellframe_diff_clear() {
     SHELLFRAME_DIFF_RIGHT=()
     SHELLFRAME_DIFF_LNUMS=()
     SHELLFRAME_DIFF_RNUMS=()
+    SHELLFRAME_DIFF_FILES=()
+    SHELLFRAME_DIFF_FILE_ROWS=()
     SHELLFRAME_DIFF_ROW_COUNT=0
 }
 
@@ -150,6 +156,10 @@ shellframe_diff_parse() {
             # Extract file name from "diff --git a/foo b/foo"
             local _fname="${_line#diff --git a/}"
             _fname="${_fname%% b/*}"
+
+            # Track file index
+            SHELLFRAME_DIFF_FILES+=("$_fname")
+            SHELLFRAME_DIFF_FILE_ROWS+=("${#SHELLFRAME_DIFF_TYPES[@]}")
 
             SHELLFRAME_DIFF_TYPES+=("hdr")
             SHELLFRAME_DIFF_LEFT+=("$_fname")

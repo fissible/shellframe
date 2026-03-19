@@ -267,6 +267,42 @@ _shellframe_shell_draw() {
     done
 }
 
+# ── _shellframe_shell_read_key ────────────────────────────────────────────────
+#
+# Like shellframe_read_key but with a 1-second timeout on the initial byte.
+# If the timeout expires (or SIGWINCH interrupts the read), the output var
+# is set to "" and the caller should loop back to check for resize.
+
+_shellframe_shell_read_key() {
+    local _out_var="${1:-_SHELLFRAME_KEY}"
+    local _k="" _c=""
+
+    # Timeout: 1 second.  If SIGWINCH fires, bash 3.2 on macOS will NOT
+    # interrupt read, but the 1s timeout ensures we re-check the flag.
+    IFS= read -r -n1 -d '' -t 1 _k || true
+
+    if [[ -z "$_k" ]]; then
+        printf -v "$_out_var" '%s' ""
+        return 0
+    fi
+
+    if [[ "$_k" == $'\x1b' ]]; then
+        IFS= read -r -n1 -d '' -t 1 _c || true
+        _k+="${_c}"
+        if [[ "$_c" == '[' || "$_c" == 'O' ]]; then
+            while true; do
+                IFS= read -r -n1 -d '' -t 1 _c || break
+                _k+="${_c}"
+                case "$_c" in
+                    [A-Za-z~]) break ;;
+                esac
+            done
+        fi
+    fi
+
+    printf -v "$_out_var" '%s' "$_k"
+}
+
 # ── shellframe_shell ──────────────────────────────────────────────────────────
 
 shellframe_shell() {
@@ -283,6 +319,10 @@ shellframe_shell() {
     local _k_tab="${SHELLFRAME_KEY_TAB:-$'\t'}"
     local _k_shift_tab="${SHELLFRAME_KEY_SHIFT_TAB:-$'\033[Z'}"
 
+    # SIGWINCH: flag for redraw on terminal resize
+    _SHELLFRAME_SHELL_RESIZED=0
+    trap '_SHELLFRAME_SHELL_RESIZED=1' WINCH
+
     while [[ "$_current" != "__QUIT__" ]]; do
 
         # Enter new screen: reset focus ring index to 0, full draw
@@ -293,8 +333,24 @@ shellframe_shell() {
         # Input loop for this screen
         local _screen_done=0
         while (( ! _screen_done )); do
+            # Check for pending resize
+            if (( _SHELLFRAME_SHELL_RESIZED )); then
+                _SHELLFRAME_SHELL_RESIZED=0
+                shellframe_screen_clear
+                _shellframe_shell_draw "$_prefix" "$_current"
+            fi
+
+            # Read with timeout so SIGWINCH can interrupt the loop
             local _key=""
-            shellframe_read_key _key
+            _shellframe_shell_read_key _key
+            [[ -z "$_key" ]] && continue   # timeout or resize — loop back
+
+            # Check for resize after read returns
+            if (( _SHELLFRAME_SHELL_RESIZED )); then
+                _SHELLFRAME_SHELL_RESIZED=0
+                shellframe_screen_clear
+                _shellframe_shell_draw "$_prefix" "$_current"
+            fi
 
             local _focused
             _shellframe_shell_focus_owner _focused
@@ -387,5 +443,5 @@ shellframe_shell() {
     shellframe_raw_exit "$_saved_stty"
     shellframe_cursor_show
     shellframe_screen_exit
-    trap - EXIT INT TERM
+    trap - EXIT INT TERM WINCH
 }
