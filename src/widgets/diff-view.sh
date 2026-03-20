@@ -45,24 +45,30 @@
 SHELLFRAME_DIFF_VIEW_FOCUSED=0
 
 # Pane footer labels — set by the caller before render
-SHELLFRAME_DIFF_VIEW_LEFT_FOOTER=""     # e.g. "HEAD~3  abc1234  2026-03-18"
-SHELLFRAME_DIFF_VIEW_RIGHT_FOOTER=""    # e.g. "HEAD  def5678  2026-03-19"
+SHELLFRAME_DIFF_VIEW_LEFT_FOOTER=""     # left side: ref + tag + sha + subject
+SHELLFRAME_DIFF_VIEW_RIGHT_FOOTER=""    # right side: ref + tag + sha + subject
+SHELLFRAME_DIFF_VIEW_LEFT_DATE=""       # right-aligned date for left pane
+SHELLFRAME_DIFF_VIEW_RIGHT_DATE=""      # right-aligned date for right pane
 
 # File header styling — set by the caller for a custom look, or leave empty for default
 SHELLFRAME_DIFF_VIEW_FILE_HDR_ON=""     # ANSI sequence to start file header
 SHELLFRAME_DIFF_VIEW_FILE_HDR_OFF=""    # ANSI sequence to end file header
 
-# Gutter width: line number + space
-_SHELLFRAME_DV_GUTTER=5
+# Gutter width: line number (4) + indicator (1) + space (1)
+_SHELLFRAME_DV_GUTTER=6
 
 # ── shellframe_diff_view_init ───────────────────────────────────────────────
+
+# Extra blank rows at the end of content so "end of diff" is visually clear
+_SHELLFRAME_DV_PADDING=5
 
 shellframe_diff_view_init() {
     shellframe_split_init "dv_split" "v" 2 "0:0"
 
-    # Scroll contexts — total rows = diff row count, cols/viewport set at render
-    shellframe_scroll_init "dv_left"  "${SHELLFRAME_DIFF_ROW_COUNT:-0}" 1 1 1
-    shellframe_scroll_init "dv_right" "${SHELLFRAME_DIFF_ROW_COUNT:-0}" 1 1 1
+    # Scroll contexts — total rows = diff row count + padding buffer
+    local _total=$(( ${SHELLFRAME_DIFF_ROW_COUNT:-0} + _SHELLFRAME_DV_PADDING ))
+    shellframe_scroll_init "dv_left"  "$_total" 1 1 1
+    shellframe_scroll_init "dv_right" "$_total" 1 1 1
 
     shellframe_sync_scroll_init "dv_sync" "dv_left" "dv_right"
 }
@@ -88,10 +94,15 @@ _shellframe_dv_render_pane() {
 
     local _reset="${SHELLFRAME_RESET:-}"
     local _gray="${SHELLFRAME_GRAY:-}"
-    local _red="${SHELLFRAME_RED:-}"
-    local _green="${SHELLFRAME_GREEN:-}"
     local _bold="${SHELLFRAME_BOLD:-}"
     local _reverse="${SHELLFRAME_REVERSE:-}"
+
+    # Unified muted colors for all change types (add, del, chg)
+    # Very dark backgrounds with dim text — looks like a subtle tint
+    local _add_on=$'\033[48;5;235m\033[38;5;108m'     # dim green text, near-black bg
+    local _del_on=$'\033[48;5;235m\033[38;5;131m'     # dim red text, near-black bg
+    local _add_ind=$'\033[38;5;108m'                   # indicator color (no bg)
+    local _del_ind=$'\033[38;5;131m'                   # indicator color (no bg)
 
     # When unfocused, dim all content so the focused widget stands out
     local _dim="" _undim=""
@@ -164,6 +175,13 @@ _shellframe_dv_render_pane() {
                 _buf+="${_tmp}${_undim}"
                 continue
                 ;;
+            file_sep)
+                # Full-width horizontal rule between files
+                local _rule="" _rc
+                for (( _rc=0; _rc < _width; _rc++ )); do _rule+="─"; done
+                _buf+="${_gray}${_rule}${_reset}${_undim}"
+                continue
+                ;;
             sep)
                 local _pad=$(( (_width - 5) / 2 ))
                 (( _pad < 0 )) && _pad=0
@@ -173,32 +191,54 @@ _shellframe_dv_render_pane() {
                 ;;
         esac
 
-        # Line number or blank gutter
+        # Gutter: line number + indicator column (+/-/space)
+        local _indicator=" "
+        case "$_type" in
+            add) [[ "$_side" == "right" ]] && _indicator="+" ;;
+            del) [[ "$_side" == "left" ]]  && _indicator="-" ;;
+            chg) if [[ "$_side" == "left" ]]; then _indicator="-"; else _indicator="+"; fi ;;
+        esac
+
+        local _ind_color=""
+        case "$_indicator" in
+            "+") _ind_color="$_add_ind" ;;
+            "-") _ind_color="$_del_ind" ;;
+        esac
+
         if [[ -n "$_lnum" ]]; then
-            printf -v _tmp '%s%4s%s ' "$_gray" "$_lnum" "$_reset"
-            _buf+="$_tmp"
+            _buf+="${_gray}$(printf '%4s' "$_lnum")${_reset}${_ind_color}${_indicator}${_reset} "
         else
-            _buf+="     "
+            _buf+="    ${_ind_color}${_indicator}${_reset} "
         fi
 
-        # Content with type-based coloring
+        # Content
         local _display="${_text:0:$_content_w}"
+        local _fill_n=$(( _content_w - ${#_display} ))
+        (( _fill_n < 0 )) && _fill_n=0
 
         case "$_type" in
             ctx)
                 _buf+="$_display"
                 ;;
             add)
-                [[ "$_side" == "right" ]] && _buf+="${_green}${_display}${_reset}"
+                if [[ "$_side" == "right" ]]; then
+                    printf -v _tmp '%s%s%*s%s' "$_add_on" "$_display" "$_fill_n" "" "$_reset"
+                    _buf+="$_tmp"
+                fi
                 ;;
             del)
-                [[ "$_side" == "left" ]] && _buf+="${_red}${_display}${_reset}"
+                if [[ "$_side" == "left" ]]; then
+                    printf -v _tmp '%s%s%*s%s' "$_del_on" "$_display" "$_fill_n" "" "$_reset"
+                    _buf+="$_tmp"
+                fi
                 ;;
             chg)
                 if [[ "$_side" == "left" ]]; then
-                    _buf+="${_red}${_display}${_reset}"
+                    printf -v _tmp '%s%s%*s%s' "$_del_on" "$_display" "$_fill_n" "" "$_reset"
+                    _buf+="$_tmp"
                 else
-                    _buf+="${_green}${_display}${_reset}"
+                    printf -v _tmp '%s%s%*s%s' "$_add_on" "$_display" "$_fill_n" "" "$_reset"
+                    _buf+="$_tmp"
                 fi
                 ;;
         esac
@@ -213,6 +253,8 @@ _shellframe_dv_render_pane() {
 
 shellframe_diff_view_render() {
     local _top="$1" _left="$2" _width="$3" _height="$4"
+
+    shellframe_split_init "dv_split" "v" 2 "0:0"
 
     # Reserve bottom row for pane footers if either footer is set
     local _content_h="$_height"
@@ -237,7 +279,7 @@ shellframe_diff_view_render() {
     _shellframe_dv_render_pane "$_lt" "$_ll" "$_lw" "$_lh" "left"
     _shellframe_dv_render_pane "$_rt" "$_rl" "$_rw" "$_rh" "right"
 
-    # Render pane footers
+    # Render pane footers (use full-height bounds for correct widths)
     if (( _has_footer )); then
         local _footer_row=$(( _top + _height - 1 ))
         local _gray="${SHELLFRAME_GRAY:-}"
@@ -245,22 +287,37 @@ shellframe_diff_view_render() {
         local _rev="${SHELLFRAME_REVERSE:-}"
         local _fbuf="" _ftmp=""
 
+        # Get full-width pane bounds (not the content-height-reduced ones)
+        local _flt _fll _flw _flh _frt _frl _frw _frh
+        shellframe_split_bounds "dv_split" 0 "$_top" "$_left" "$_width" "$_height" \
+            _flt _fll _flw _flh
+        shellframe_split_bounds "dv_split" 1 "$_top" "$_left" "$_width" "$_height" \
+            _frt _frl _frw _frh
+
+        local _white="${SHELLFRAME_WHITE:-}"
+
         # Left footer
         local _lf="${SHELLFRAME_DIFF_VIEW_LEFT_FOOTER:-}"
-        local _lf_clipped="${_lf:0:$(( _lw - 1 ))}"
-        local _lpad=$(( _lw - ${#_lf_clipped} - 1 ))
-        (( _lpad < 0 )) && _lpad=0
-        printf -v _ftmp '\033[%d;%dH%s%s %s%*s%s' \
-            "$_footer_row" "$_ll" "$_rev" "$_gray" "$_lf_clipped" "$_lpad" "" "$_reset"
+        local _ld="${SHELLFRAME_DIFF_VIEW_LEFT_DATE:-}"
+        local _lf_clip="${_lf:0:$(( _flw - ${#_ld} - 3 ))}"
+        printf -v _ftmp '\033[%d;%dH%s%s %s' \
+            "$_footer_row" "$_fll" "$_rev" "$_white" "$_lf_clip"
+        _fbuf+="$_ftmp"
+        local _lmid=$(( _flw - ${#_lf_clip} - ${#_ld} - 2 ))
+        (( _lmid < 0 )) && _lmid=0
+        printf -v _ftmp '%*s%s %s' "$_lmid" "" "$_ld" "$_reset"
         _fbuf+="$_ftmp"
 
         # Right footer
         local _rf="${SHELLFRAME_DIFF_VIEW_RIGHT_FOOTER:-}"
-        local _rf_clipped="${_rf:0:$(( _rw - 1 ))}"
-        local _rpad=$(( _rw - ${#_rf_clipped} - 1 ))
-        (( _rpad < 0 )) && _rpad=0
-        printf -v _ftmp '\033[%d;%dH%s%s %s%*s%s' \
-            "$_footer_row" "$_rl" "$_rev" "$_gray" "$_rf_clipped" "$_rpad" "" "$_reset"
+        local _rd="${SHELLFRAME_DIFF_VIEW_RIGHT_DATE:-}"
+        local _rf_clip="${_rf:0:$(( _frw - ${#_rd} - 3 ))}"
+        printf -v _ftmp '\033[%d;%dH%s%s %s' \
+            "$_footer_row" "$_frl" "$_rev" "$_white" "$_rf_clip"
+        _fbuf+="$_ftmp"
+        local _rmid=$(( _frw - ${#_rf_clip} - ${#_rd} - 2 ))
+        (( _rmid < 0 )) && _rmid=0
+        printf -v _ftmp '%*s%s %s' "$_rmid" "" "$_rd" "$_reset"
         _fbuf+="$_ftmp"
 
         printf '%s' "$_fbuf" >&3

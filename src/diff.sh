@@ -160,6 +160,15 @@ shellframe_diff_parse() {
             local _fname="${_line#diff --git a/}"
             _fname="${_fname%% b/*}"
 
+            # Insert a blank separator line before each file (except the first)
+            if (( ${#SHELLFRAME_DIFF_FILES[@]} > 0 )); then
+                SHELLFRAME_DIFF_TYPES+=("file_sep")
+                SHELLFRAME_DIFF_LEFT+=("")
+                SHELLFRAME_DIFF_RIGHT+=("")
+                SHELLFRAME_DIFF_LNUMS+=("")
+                SHELLFRAME_DIFF_RNUMS+=("")
+            fi
+
             # Track file index (default status "modified"; updated by ---/+++ parsing)
             SHELLFRAME_DIFF_FILES+=("$_fname")
             SHELLFRAME_DIFF_FILE_ROWS+=("${#SHELLFRAME_DIFF_TYPES[@]}")
