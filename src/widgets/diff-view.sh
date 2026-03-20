@@ -97,12 +97,13 @@ _shellframe_dv_render_pane() {
     local _bold="${SHELLFRAME_BOLD:-}"
     local _reverse="${SHELLFRAME_REVERSE:-}"
 
-    # Unified muted colors for all change types (add, del, chg)
-    # Very dark backgrounds with dim text — looks like a subtle tint
-    local _add_on=$'\033[48;5;235m\033[38;5;108m'     # dim green text, near-black bg
-    local _del_on=$'\033[48;5;235m\033[38;5;131m'     # dim red text, near-black bg
-    local _add_ind=$'\033[38;5;108m'                   # indicator color (no bg)
-    local _del_ind=$'\033[38;5;131m'                   # indicator color (no bg)
+    # Add: brighter green text, slightly tinted green bg
+    # Del: warmer red text, slightly tinted red bg
+    # Different bg tints so add/del are distinguishable even without reading text
+    local _add_on=$'\033[48;5;22m\033[38;5;114m'      # green text, dark green bg
+    local _del_on=$'\033[48;5;52m\033[38;5;174m'      # warm red text, dark red bg
+    local _add_ind=$'\033[38;5;78m'                    # brighter green indicator
+    local _del_ind=$'\033[38;5;167m'                   # warmer red indicator
 
     # When unfocused, dim all content so the focused widget stands out
     local _dim="" _undim=""
@@ -117,9 +118,81 @@ _shellframe_dv_render_pane() {
     local _fh_on="${SHELLFRAME_DIFF_VIEW_FILE_HDR_ON:-${_bold}${_reverse}}"
     local _fh_off="${SHELLFRAME_DIFF_VIEW_FILE_HDR_OFF:-${_reset}}"
 
+    # ── Sticky file header ────────────────────────────────────────────
+    # If the top visible row is not a file header, pin the current file's
+    # header at row 0 of the pane. The header disappears naturally when
+    # the next file's own header row scrolls into view.
+    local _sticky_row=-1  # -1 = no sticky header needed
+    local _content_start=0
+
+    if (( SHELLFRAME_DIFF_ROW_COUNT > 0 && _scroll_top < SHELLFRAME_DIFF_ROW_COUNT )); then
+        local _top_type="${SHELLFRAME_DIFF_TYPES[$_scroll_top]}"
+        if [[ "$_top_type" != "hdr" && "$_top_type" != "file_sep" ]]; then
+            # Find which file owns the current scroll position
+            local _sticky_fi=-1 _si
+            for (( _si=0; _si < ${#SHELLFRAME_DIFF_FILE_ROWS[@]}; _si++ )); do
+                if (( SHELLFRAME_DIFF_FILE_ROWS[_si] <= _scroll_top )); then
+                    _sticky_fi=$_si
+                fi
+            done
+            if (( _sticky_fi >= 0 )); then
+                _sticky_row="${SHELLFRAME_DIFF_FILE_ROWS[$_sticky_fi]}"
+                _content_start=1  # reserve row 0 for the sticky header
+            fi
+        fi
+    fi
+
+    # Render sticky header on row 0 if needed
+    if (( _sticky_row >= 0 )); then
+        local _stext
+        if [[ "$_side" == "left" ]]; then
+            _stext="${SHELLFRAME_DIFF_LEFT[$_sticky_row]}"
+        else
+            _stext="${SHELLFRAME_DIFF_RIGHT[$_sticky_row]}"
+        fi
+
+        local _sfstatus="modified" _sfi
+        for (( _sfi=0; _sfi < ${#SHELLFRAME_DIFF_FILE_ROWS[@]}; _sfi++ )); do
+            if (( SHELLFRAME_DIFF_FILE_ROWS[_sfi] == _sticky_row )); then
+                _sfstatus="${SHELLFRAME_DIFF_FILE_STATUS[$_sfi]:-modified}"
+                break
+            fi
+        done
+
+        local _sstatus="" _scolor=""
+        if [[ "$_side" == "left" ]]; then
+            case "$_sfstatus" in
+                deleted) _sstatus=" ✕ deleted"; _scolor="$_del_ind" ;;
+                added)   _sstatus="" ;;
+                *)       _sstatus=" ✎ modified"; _scolor="$_gray" ;;
+            esac
+        else
+            case "$_sfstatus" in
+                added)   _sstatus=" ✚ added"; _scolor="$_add_ind" ;;
+                deleted) _sstatus="" ;;
+                *)       _sstatus=" ✎ modified"; _scolor="$_gray" ;;
+            esac
+        fi
+
+        local _shdr_inner=$(( _width - 2 ))
+        local _sfname_max=$(( _shdr_inner - ${#_sstatus} ))
+        local _sfname_clip="${_stext:0:$_sfname_max}"
+        local _shdr_pad=$(( _shdr_inner - ${#_sfname_clip} - ${#_sstatus} ))
+        (( _shdr_pad < 0 )) && _shdr_pad=0
+
+        printf -v _tmp '\033[%d;%dH%*s\033[%d;%dH' \
+            "$_top" "$_left" "$_width" "" "$_top" "$_left"
+        _buf+="$_tmp"
+        printf -v _tmp '%s▎%s%s%s%s%*s%s' \
+            "$_fh_on" "$_bold" "$_sfname_clip" "$_reset$_fh_on" \
+            "${_scolor}${_sstatus}${_reset}${_fh_on}" \
+            "$_shdr_pad" "" "$_fh_off"
+        _buf+="$_tmp"
+    fi
+
     local _r
-    for (( _r=0; _r < _height; _r++ )); do
-        local _row_idx=$(( _scroll_top + _r ))
+    for (( _r=_content_start; _r < _height; _r++ )); do
+        local _row_idx=$(( _scroll_top + (_r - _content_start) ))
         local _screen_row=$(( _top + _r ))
 
         # Position cursor and clear the line area (printf -v, no fork)
@@ -154,24 +227,31 @@ _shellframe_dv_render_pane() {
                     fi
                 done
 
-                local _status_label=""
+                local _status_label="" _status_color=""
                 if [[ "$_side" == "left" ]]; then
                     case "$_fstatus" in
-                        deleted) _status_label=" [deleted]" ;;
+                        deleted) _status_label=" ✕ deleted"; _status_color="$_del_ind" ;;
                         added)   _status_label="" ;;
-                        *)       _status_label="" ;;
+                        *)       _status_label=" ✎ modified"; _status_color="$_gray" ;;
                     esac
                 else
                     case "$_fstatus" in
-                        added)   _status_label=" [added]" ;;
+                        added)   _status_label=" ✚ added"; _status_color="$_add_ind" ;;
                         deleted) _status_label="" ;;
-                        *)       _status_label="" ;;
+                        *)       _status_label=" ✎ modified"; _status_color="$_gray" ;;
                     esac
                 fi
 
-                local _hdr_text="${_text}${_status_label}"
-                printf -v _tmp '%s %-*.*s%s' "$_fh_on" \
-                    "$(( _width - 1 ))" "$(( _width - 1 ))" "$_hdr_text" "$_fh_off"
+                # File header: ▎prefix + bold filename + status
+                local _hdr_inner=$(( _width - 2 ))
+                local _fname_max=$(( _hdr_inner - ${#_status_label} ))
+                local _fname_clip="${_text:0:$_fname_max}"
+                local _hdr_pad=$(( _hdr_inner - ${#_fname_clip} - ${#_status_label} ))
+                (( _hdr_pad < 0 )) && _hdr_pad=0
+                printf -v _tmp '%s▎%s%s%s%s%*s%s' \
+                    "$_fh_on" "$_bold" "$_fname_clip" "$_reset$_fh_on" \
+                    "${_status_color}${_status_label}${_reset}${_fh_on}" \
+                    "$_hdr_pad" "" "$_fh_off"
                 _buf+="${_tmp}${_undim}"
                 continue
                 ;;
@@ -211,14 +291,16 @@ _shellframe_dv_render_pane() {
             _buf+="    ${_ind_color}${_indicator}${_reset} "
         fi
 
-        # Content
-        local _display="${_text:0:$_content_w}"
+        # Content: expand tabs to spaces before measuring/clipping
+        local _expanded="${_text//$'\t'/    }"
+        local _display="${_expanded:0:$_content_w}"
         local _fill_n=$(( _content_w - ${#_display} ))
         (( _fill_n < 0 )) && _fill_n=0
 
         case "$_type" in
             ctx)
-                _buf+="$_display"
+                # Dim context lines so changes pop
+                _buf+=$'\033[38;5;245m'"${_display}${_reset}"
                 ;;
             add)
                 if [[ "$_side" == "right" ]]; then
