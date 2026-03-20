@@ -389,15 +389,11 @@ _shellframe_dv_render_pane() {
                     fi
                 fi
                 if [[ -n "$_hl_text" ]]; then
-                    if (( ${#_expanded} > _content_w )); then
-                        # Line overflows — clip by visible width
-                        local _hl_clipped
-                        _shellframe_dv_clip_ansi "$_hl_text" "$_content_w" _hl_clipped
-                        _buf+="${_hl_clipped}${_reset}"
-                    else
-                        # Line fits — use directly (no expensive clip)
-                        _buf+="${_hl_text}${_reset}"
-                    fi
+                    # Always clip highlighted text — bat output may differ
+                    # in visible width from our tab-expanded measurement
+                    local _hl_clipped
+                    _shellframe_dv_clip_ansi "$_hl_text" "$_content_w" _hl_clipped
+                    _buf+="${_hl_clipped}${_reset}"
                 else
                     _buf+=$'\033[38;5;245m'"${_display}${_reset}"
                 fi
