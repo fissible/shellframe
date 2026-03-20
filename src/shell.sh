@@ -250,14 +250,17 @@ _shellframe_shell_draw() {
     # so on_focus sees the correct owner before regions are re-registered.
     if [[ -n "$_SHELLFRAME_SHELL_FOCUS_REQUEST" ]]; then
         local _req_name="$_SHELLFRAME_SHELL_FOCUS_REQUEST"
-        _SHELLFRAME_SHELL_FOCUS_REQUEST=""
-        local _ri
+        local _req_found=0 _ri
         for _ri in "${!_SHELLFRAME_SHELL_FOCUS_RING[@]}"; do
             if [[ "${_SHELLFRAME_SHELL_FOCUS_RING[$_ri]}" == "$_req_name" ]]; then
                 _SHELLFRAME_SHELL_FOCUS_IDX=$_ri
+                _SHELLFRAME_SHELL_FOCUS_REQUEST=""
+                _req_found=1
                 break
             fi
         done
+        # If not found in old ring, leave the request for focus_init
+        # (the region may be registered in the upcoming render)
     fi
 
     # Fire on_focus using the (now updated) focus ring

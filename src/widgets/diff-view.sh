@@ -45,6 +45,8 @@
 SHELLFRAME_DIFF_VIEW_FOCUSED=0
 SHELLFRAME_DIFF_VIEW_LEFT_FOCUSED=0    # per-pane focus (for split-region mode)
 SHELLFRAME_DIFF_VIEW_RIGHT_FOCUSED=0
+SHELLFRAME_DIFF_VIEW_FOCUS_ACCENT=""   # ANSI sequence for focused pane accent (title bar bg)
+SHELLFRAME_DIFF_VIEW_HIDE_FILE_HDR=0  # 1 to skip rendering file header rows
 
 # Pane footer labels — set by the caller before render
 SHELLFRAME_DIFF_VIEW_LEFT_FOOTER=""     # left side: ref + tag + sha + subject
@@ -272,6 +274,10 @@ _shellframe_dv_render_pane() {
 
         case "$_type" in
             hdr)
+                if (( SHELLFRAME_DIFF_VIEW_HIDE_FILE_HDR )); then
+                    _buf+="$_undim"
+                    continue
+                fi
                 # Look up file status for this header row
                 local _fstatus="modified" _fi
                 for (( _fi=0; _fi < ${#SHELLFRAME_DIFF_FILE_ROWS[@]}; _fi++ )); do
@@ -310,7 +316,10 @@ _shellframe_dv_render_pane() {
                 continue
                 ;;
             file_sep)
-                # Full-width horizontal rule between files
+                if (( SHELLFRAME_DIFF_VIEW_HIDE_FILE_HDR )); then
+                    _buf+="$_undim"
+                    continue
+                fi
                 local _rule="" _rc
                 for (( _rc=0; _rc < _width; _rc++ )); do _rule+="─"; done
                 _buf+="${_gray}${_rule}${_reset}${_undim}"
@@ -518,8 +527,11 @@ shellframe_diff_view_render() {
 shellframe_diff_view_render_side() {
     local _top="$1" _left="$2" _width="$3" _height="$4" _side="$5"
 
-    # Reserve bottom row for footer if set
+    local _reset="${SHELLFRAME_RESET:-}"
+    local _content_top="$_top"
     local _content_h="$_height"
+
+    # Reserve bottom row for footer if set
     local _footer_key _date_key
     if [[ "$_side" == "left" ]]; then
         _footer_key="$SHELLFRAME_DIFF_VIEW_LEFT_FOOTER"
@@ -532,11 +544,11 @@ shellframe_diff_view_render_side() {
     local _has_footer=0
     if [[ -n "$_footer_key" ]]; then
         _has_footer=1
-        _content_h=$(( _height - 1 ))
+        _content_h=$(( _content_h - 1 ))
         (( _content_h < 1 )) && _content_h=1
     fi
 
-    _shellframe_dv_render_pane "$_top" "$_left" "$_width" "$_content_h" "$_side"
+    _shellframe_dv_render_pane "$_content_top" "$_left" "$_width" "$_content_h" "$_side"
 
     # Render footer
     if (( _has_footer )); then
