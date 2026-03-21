@@ -169,9 +169,9 @@ _shellframe_modal_dims() {
     local _need_w=$(( _need_inner_w + 2 ))   # + 2 for border columns
     (( _need_w < 20 )) && _need_w=20
 
-    local _modal_w="${SHELLFRAME_MODAL_WIDTH:-0}"
-    (( _modal_w == 0 )) && _modal_w=$_need_w
-    (( _modal_w > _max_w )) && _modal_w=$_max_w
+    local _dim_w="${SHELLFRAME_MODAL_WIDTH:-0}"
+    (( _dim_w == 0 )) && _dim_w=$_need_w
+    (( _dim_w > _max_w )) && _dim_w=$_max_w
 
     # ── Height ──
     # inner rows: 1 (top pad) + n_msg + 1 (gap) + [input: 1+1] + 1 (buttons)
@@ -180,12 +180,12 @@ _shellframe_modal_dims() {
     local _need_h=$(( _inner_h + 2 ))   # + 2 for border rows
     (( _need_h < 7 )) && _need_h=7
 
-    local _modal_h="${SHELLFRAME_MODAL_HEIGHT:-0}"
-    (( _modal_h == 0 )) && _modal_h=$_need_h
-    (( _modal_h > _max_h )) && _modal_h=$_max_h
+    local _dim_h="${SHELLFRAME_MODAL_HEIGHT:-0}"
+    (( _dim_h == 0 )) && _dim_h=$_need_h
+    (( _dim_h > _max_h )) && _dim_h=$_max_h
 
-    printf -v "$_out_w" '%d' "$_modal_w"
-    printf -v "$_out_h" '%d' "$_modal_h"
+    printf -v "$_out_w" '%d' "$_dim_w"
+    printf -v "$_out_h" '%d' "$_dim_h"
 }
 
 # ── shellframe_modal_render ───────────────────────────────────────────────────

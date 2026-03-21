@@ -16,8 +16,9 @@ list_select() {
     # When called as $(list_select ...), stdout is a pipe. Redirect to
     # /dev/tty so screen/draw output reaches the terminal. The final
     # result printf restores stdout so the value is captured by $().
-    # Use fixed fd 3 — {varname} fd allocation requires bash 4.1+.
-    exec 3>&1
+    # Use fixed fd 4 — {varname} fd allocation requires bash 4.1+.
+    # fd 3 is reserved by shellframe_screen_enter for persistent /dev/tty output.
+    exec 4>&1
     exec 1>/dev/tty
 
     # ── Cleanup ───────────────────────────────────────────────────────
@@ -71,8 +72,8 @@ list_select() {
     trap - INT TERM
 
     # Restore original stdout so the result is captured by $() callers
-    exec 1>&3
-    exec 3>&-
+    exec 1>&4
+    exec 4>&-
 
     [[ -n "$result" ]] && printf '%s\n' "$result"
 }
