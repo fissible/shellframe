@@ -150,6 +150,9 @@ shellframe_panel_render() {
     local _tl _hr _tr _vr _bl _br
     _shellframe_panel_chars "$_style"
 
+    local _border=0
+    [[ "$_style" != "none" ]] && _border=1
+
     # Apply focus color to border characters via ANSI bold (if tput gave us something)
     local _on="" _off=""
     if (( _focused )) && [[ -n "${SHELLFRAME_BOLD:-}" ]]; then
@@ -159,7 +162,34 @@ shellframe_panel_render() {
 
     # Top border (with optional title)
     printf '%s' "$_on" >&3
-    _shellframe_panel_hline "$_top" "$_left" "$_width" "$_tl" "$_hr" "$_tr" "$_title" "$_talign"
+
+    local _mode="${SHELLFRAME_PANEL_MODE:-framed}"
+    if [[ "$_mode" == "windowed" ]]; then
+        # Top border: no title embedded
+        _shellframe_panel_hline "$_top" "$_left" "$_width" "$_tl" "$_hr" "$_tr"
+
+        # Title bar row: full-width colored row immediately inside top border
+        local _title_row=$(( _top + _border ))
+        local _title_bg="${SHELLFRAME_PANEL_TITLE_BG:-}"
+        local _title_rst="${SHELLFRAME_RESET:-$'\033[0m'}"
+        local _title_text=" ${_title}"
+        local _title_tlen=$(( ${#_title} + 1 ))
+        local _inner_w=$(( _width - _border * 2 ))
+        local _title_pad=$(( _inner_w - _title_tlen ))
+        (( _title_pad < 0 )) && _title_pad=0
+        local _title_spaces
+        printf -v _title_spaces '%*s' "$_title_pad" ''
+        printf '\033[%d;%dH%s%s%s%s%s' \
+            "$_title_row" "$(( _left + _border ))" \
+            "${_on}${_vr}${_off}" \
+            "$_title_bg" "$_title_text" "$_title_spaces" "$_title_rst" >&3
+        printf '\033[%d;%dH%s' \
+            "$_title_row" "$(( _left + _width - 1 ))" \
+            "${_on}${_vr}${_off}" >&3
+    else
+        # framed mode: title embedded in top border line (existing behaviour)
+        _shellframe_panel_hline "$_top" "$_left" "$_width" "$_tl" "$_hr" "$_tr" "$_title" "$_talign"
+    fi
 
     # Side borders
     local _r
