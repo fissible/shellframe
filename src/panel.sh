@@ -39,9 +39,12 @@
 # ── Public API ─────────────────────────────────────────────────────────────────
 #
 #   shellframe_panel_render top left width height
-#     Draw the border and title within the region.  Inner content area is
-#     NOT cleared — call shellframe_panel_inner to get bounds and render
-#     child content yourself.  Output goes to /dev/tty.
+#     Draw the border and title within the region.  In framed mode (default),
+#     the title is embedded in the top border line.  In windowed mode
+#     (SHELLFRAME_PANEL_MODE=windowed), the title is rendered in a dedicated
+#     full-width row inside the top border, styled with SHELLFRAME_PANEL_TITLE_BG.
+#     Inner content area is NOT cleared — call shellframe_panel_inner to get
+#     bounds and render child content yourself.  Output goes to fd 3.
 #
 #   shellframe_panel_inner top left width height out_top out_left out_width out_height
 #     Compute the inner (content) region for the given panel region.
