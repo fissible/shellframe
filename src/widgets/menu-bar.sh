@@ -110,7 +110,110 @@ shellframe_menubar_init() {
     shellframe_sel_init "mb_${_ctx}_sm" 0
 }
 shellframe_menubar_render() { true; }
-shellframe_menubar_on_key() { return 1; }
-shellframe_menubar_on_focus() { SHELLFRAME_MENUBAR_FOCUSED="${1:-0}"; }
+
+# ── shellframe_menubar_on_focus ────────────────────────────────────────────────
+
+shellframe_menubar_on_focus() {
+    local _focused="${1:-0}"
+    local _ctx="${SHELLFRAME_MENUBAR_CTX:-menubar}"
+    SHELLFRAME_MENUBAR_FOCUSED="$_focused"
+    if (( _focused )); then
+        printf -v "_SHELLFRAME_MB_${_ctx}_STATE" '%s' "bar"
+    else
+        printf -v "_SHELLFRAME_MB_${_ctx}_STATE" '%s' "idle"
+    fi
+}
+
+# ── Internal: first selectable index in a menu array ──────────────────────────
+
+# _shellframe_mb_first_selectable items_var_name out_var
+# Finds the first non-separator index.
+# Stores result in out_var (0-based). Returns 1 if all items are separators.
+_shellframe_mb_first_selectable() {
+    local _arr_var="$1" _out="$2"
+    local _n _i _item
+    eval "_n=\${#${_arr_var}[@]}"
+    for (( _i=0; _i<_n; _i++ )); do
+        eval "_item=\"\${${_arr_var}[$_i]}\""
+        _shellframe_mb_is_sep "$_item" || { printf -v "$_out" '%d' "$_i"; return 0; }
+    done
+    printf -v "$_out" '%d' 0
+    return 1
+}
+
+# ── Internal: menu variable name for bar index ────────────────────────────────
+
+# _shellframe_mb_menu_var idx out_var
+# Converts SHELLFRAME_MENU_NAMES[idx] to its array variable name.
+# e.g. "File" → "SHELLFRAME_MENU_FILE"
+_shellframe_mb_menu_var() {
+    local _idx="$1" _out="$2"
+    local _label="${SHELLFRAME_MENU_NAMES[$_idx]}"
+    # uppercase, spaces → underscores
+    local _uname
+    _uname=$(printf '%s' "$_label" | tr '[:lower:]' '[:upper:]' | tr ' ' '_')
+    printf -v "$_out" '%s' "SHELLFRAME_MENU_${_uname}"
+}
+
+# ── shellframe_menubar_on_key ──────────────────────────────────────────────────
+
+shellframe_menubar_on_key() {
+    local _key="$1"
+    local _ctx="${SHELLFRAME_MENUBAR_CTX:-menubar}"
+    local _state_var="_SHELLFRAME_MB_${_ctx}_STATE"
+    local _idx_var="_SHELLFRAME_MB_${_ctx}_BAR_IDX"
+    local _state="${!_state_var}"
+    local _n_menus="${#SHELLFRAME_MENU_NAMES[@]}"
+
+    case "$_state" in
+        idle)
+            return 1
+            ;;
+        bar)
+            case "$_key" in
+                "$SHELLFRAME_KEY_RIGHT")
+                    local _idx="${!_idx_var}"
+                    _idx=$(( (_idx + 1) % _n_menus ))
+                    printf -v "$_idx_var" '%d' "$_idx"
+                    return 0
+                    ;;
+                "$SHELLFRAME_KEY_LEFT")
+                    local _idx="${!_idx_var}"
+                    _idx=$(( (_idx - 1 + _n_menus) % _n_menus ))
+                    printf -v "$_idx_var" '%d' "$_idx"
+                    return 0
+                    ;;
+                "$SHELLFRAME_KEY_ENTER"|"$SHELLFRAME_KEY_DOWN")
+                    # Open dropdown: init sel context for current menu
+                    local _mvar
+                    _shellframe_mb_menu_var "${!_idx_var}" _mvar
+                    local _n_items
+                    eval "_n_items=\${#${_mvar}[@]}"
+                    shellframe_sel_init "mb_${_ctx}_dd" "$_n_items"
+                    local _first
+                    _shellframe_mb_first_selectable "$_mvar" _first
+                    # Move cursor to first selectable
+                    local _i
+                    for (( _i=0; _i<_first; _i++ )); do
+                        shellframe_sel_move "mb_${_ctx}_dd" down
+                    done
+                    printf -v "$_state_var" '%s' "dropdown"
+                    return 0
+                    ;;
+                "$SHELLFRAME_KEY_ESC")
+                    SHELLFRAME_MENUBAR_RESULT=""
+                    printf -v "$_state_var" '%s' "idle"
+                    SHELLFRAME_MENUBAR_FOCUSED=0
+                    return 2
+                    ;;
+                *)
+                    return 1
+                    ;;
+            esac
+            ;;
+    esac
+    return 1
+}
+
 shellframe_menubar_size()   { printf '%d %d %d %d' 1 1 0 1; }
 shellframe_menubar_open()   { return 1; }

@@ -87,4 +87,91 @@ ptyunit_test_begin "menubar_init: submenu sel context created"
 _reset_mb
 assert_output "0" shellframe_sel_cursor "mb_mb_sm"
 
+# ── shellframe_menubar_on_focus ────────────────────────────────────────────────
+
+ptyunit_test_begin "on_focus 1: state → bar"
+_reset_mb
+shellframe_menubar_on_focus 1
+_st_var="_SHELLFRAME_MB_mb_STATE"
+assert_eq "bar" "${!_st_var}" "state=bar"
+
+ptyunit_test_begin "on_focus 1: FOCUSED set"
+_reset_mb
+shellframe_menubar_on_focus 1
+assert_eq "1" "$SHELLFRAME_MENUBAR_FOCUSED" "FOCUSED=1"
+
+ptyunit_test_begin "on_focus 0 from bar: state → idle"
+_reset_mb
+shellframe_menubar_on_focus 1
+shellframe_menubar_on_focus 0
+_st_var="_SHELLFRAME_MB_mb_STATE"
+assert_eq "idle" "${!_st_var}" "state=idle"
+
+ptyunit_test_begin "on_focus 0 from dropdown: state → idle"
+_reset_mb
+shellframe_menubar_on_focus 1
+shellframe_menubar_on_key "$SHELLFRAME_KEY_ENTER"
+shellframe_menubar_on_focus 0
+_st_var="_SHELLFRAME_MB_mb_STATE"
+assert_eq "idle" "${!_st_var}" "state=idle from dropdown"
+
+# ── shellframe_menubar_size ────────────────────────────────────────────────────
+
+ptyunit_test_begin "menubar_size: prints 1 1 0 1"
+assert_output "1 1 0 1" shellframe_menubar_size
+
+# ── on_key BAR state ──────────────────────────────────────────────────────────
+
+ptyunit_test_begin "on_key BAR: Right moves bar_idx, wraps"
+_reset_mb
+shellframe_menubar_on_focus 1
+shellframe_menubar_on_key "$SHELLFRAME_KEY_RIGHT"
+_idx_var="_SHELLFRAME_MB_mb_BAR_IDX"
+assert_eq "1" "${!_idx_var}" "bar_idx=1 after Right"
+
+ptyunit_test_begin "on_key BAR: Right wraps from last to 0"
+_reset_mb
+shellframe_menubar_on_focus 1
+shellframe_menubar_on_key "$SHELLFRAME_KEY_RIGHT"
+shellframe_menubar_on_key "$SHELLFRAME_KEY_RIGHT"
+shellframe_menubar_on_key "$SHELLFRAME_KEY_RIGHT"
+_idx_var="_SHELLFRAME_MB_mb_BAR_IDX"
+assert_eq "0" "${!_idx_var}" "bar_idx wraps to 0"
+
+ptyunit_test_begin "on_key BAR: Left wraps from 0 to last"
+_reset_mb
+shellframe_menubar_on_focus 1
+shellframe_menubar_on_key "$SHELLFRAME_KEY_LEFT"
+_idx_var="_SHELLFRAME_MB_mb_BAR_IDX"
+assert_eq "2" "${!_idx_var}" "bar_idx wraps to 2 (last)"
+
+ptyunit_test_begin "on_key BAR: Enter → dropdown state"
+_reset_mb
+shellframe_menubar_on_focus 1
+shellframe_menubar_on_key "$SHELLFRAME_KEY_ENTER"
+_st_var="_SHELLFRAME_MB_mb_STATE"
+assert_eq "dropdown" "${!_st_var}" "state=dropdown"
+
+ptyunit_test_begin "on_key BAR: Down → dropdown state"
+_reset_mb
+shellframe_menubar_on_focus 1
+shellframe_menubar_on_key "$SHELLFRAME_KEY_DOWN"
+_st_var="_SHELLFRAME_MB_mb_STATE"
+assert_eq "dropdown" "${!_st_var}" "state=dropdown via Down"
+
+ptyunit_test_begin "on_key BAR: Esc → idle, RESULT empty, returns 2"
+_reset_mb
+shellframe_menubar_on_focus 1
+shellframe_menubar_on_key "$SHELLFRAME_KEY_ESC"; _rc=$?
+_st_var="_SHELLFRAME_MB_mb_STATE"
+assert_eq "2" "$_rc" "Esc returns 2"
+assert_eq "idle" "${!_st_var}" "state=idle"
+assert_eq "" "$SHELLFRAME_MENUBAR_RESULT" "RESULT empty"
+
+ptyunit_test_begin "on_key BAR: unrecognised key returns 1"
+_reset_mb
+shellframe_menubar_on_focus 1
+shellframe_menubar_on_key "x"; _rc=$?
+assert_eq "1" "$_rc" "unrecognised key returns 1"
+
 ptyunit_test_summary
