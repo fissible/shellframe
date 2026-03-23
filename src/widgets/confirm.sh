@@ -4,10 +4,6 @@
 # GLOBALS (set by caller before calling shellframe_confirm):
 #   none — all configuration is passed as arguments
 #
-# GLOBALS (observable after a call returns):
-#   SHELLFRAME_CONFIRM_SELECTED — 0=Yes highlighted, 1=No highlighted (last state on exit)
-#   SHELLFRAME_CONFIRM_RESULT   — 0=Yes, 1=No (result of last call; -1 before first call)
-#
 # API:
 #   shellframe_confirm <question> [detail ...]
 #
@@ -221,7 +217,6 @@ shellframe_confirm() {
         elif [[ "$_key" == "$SHELLFRAME_KEY_ESC"   || "$_key" == 'q' || "$_key" == 'Q' ]]; then
             _retval=1; break
         else
-            # unhandled key — no redraw, no state change; loop continues
             continue
         fi
         _cf_draw
