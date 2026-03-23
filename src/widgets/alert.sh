@@ -13,12 +13,19 @@
 # Key bindings: any key dismisses.
 
 # _shellframe_alert_render title n_details [detail ...]
-# Renders the alert box to fd 3. Caller must have set fd 3 to a tty or capture fd.
+#   title     — plain-text heading shown centered and bold
+#   n_details — count of detail arguments that follow; must match the actual
+#               number of [detail ...] args (mismatch → incorrect box height)
+#   [detail ...] — optional plain-text lines shown below the title
+# Renders the alert box to fd 3. Caller must open fd 3 before calling
+# (e.g. exec 3>/dev/tty or exec 3>"$tmpfile"). Writing to a closed fd 3
+# silently discards all output.
 # Reads SHELLFRAME_* color globals.
 _shellframe_alert_render() {
     local _title="$1" _n_details="$2"
     shift 2
-    local -a _details=("$@")
+    local _details
+    _details=("$@")
 
     local _cols _rows
     _cols=$(tput cols  2>/dev/null || printf '80')

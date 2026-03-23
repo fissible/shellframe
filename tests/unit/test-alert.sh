@@ -14,6 +14,7 @@ _render_alert() {
     shift 2
     local _out
     _out=$(mktemp "${TMPDIR:-/tmp}/sf-test-alert.XXXXXX")
+    trap '{ exec 3>&- 2>/dev/null || true; rm -f "$_out"; }' RETURN
     exec 3>"$_out"
     _shellframe_alert_render "$_title" "$_n_details" "$@"
     exec 3>&-
