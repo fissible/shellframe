@@ -193,4 +193,91 @@ assert_eq "0" "$SHELLFRAME_MODAL_FOCUSED" "focused set to 0"
 ptyunit_test_begin "modal_size: returns 20 7 0 0"
 assert_output "20 7 0 0" shellframe_modal_size
 
+# ── shellframe_modal_init ──────────────────────────────────────────────────────
+
+ptyunit_test_begin "modal_init: returns 0 with no args"
+shellframe_modal_init
+assert_eq "0" "$?" "modal_init returns 0"
+
+ptyunit_test_begin "modal_init: accepts custom context name"
+shellframe_modal_init "my_modal"
+assert_eq "0" "$?" "modal_init with custom ctx returns 0"
+
+ptyunit_test_begin "modal_init: uses SHELLFRAME_MODAL_INPUT_CTX when no arg"
+SHELLFRAME_MODAL_INPUT_CTX="test_ctx"
+shellframe_modal_init
+assert_eq "0" "$?" "modal_init with INPUT_CTX returns 0"
+SHELLFRAME_MODAL_INPUT_CTX="modal_input"
+
+# ── shellframe_modal_render: fd 3 output ───────────────────────────────────────
+
+ptyunit_test_begin "modal_render: output contains message text"
+_reset_modal
+SHELLFRAME_MODAL_MESSAGE="Delete file?"
+SHELLFRAME_MODAL_BUTTONS=("OK" "Cancel")
+SHELLFRAME_MODAL_ACTIVE_BTN=0
+shellframe_modal_init
+_out=$(mktemp)
+exec 3>"$_out"
+shellframe_modal_render 1 1 40 10
+exec 3>&-
+_content=$(sed 's/\033\[[0-9;]*[A-Za-z]//g' "$_out")
+assert_contains "$_content" "Delete file?"
+rm -f "$_out"
+
+ptyunit_test_begin "modal_render: output contains button labels"
+_reset_modal
+SHELLFRAME_MODAL_MESSAGE="Continue?"
+SHELLFRAME_MODAL_BUTTONS=("Yes" "No")
+SHELLFRAME_MODAL_ACTIVE_BTN=0
+shellframe_modal_init
+_out=$(mktemp)
+exec 3>"$_out"
+shellframe_modal_render 1 1 40 10
+exec 3>&-
+_content=$(sed 's/\033\[[0-9;]*[A-Za-z]//g' "$_out")
+assert_contains "$_content" "Yes"
+assert_contains "$_content" "No"
+rm -f "$_out"
+
+ptyunit_test_begin "modal_render: double-style border renders double-line glyphs"
+_reset_modal
+SHELLFRAME_MODAL_STYLE="double"
+SHELLFRAME_MODAL_MESSAGE="Hello"
+shellframe_modal_init
+_out=$(mktemp)
+exec 3>"$_out"
+shellframe_modal_render 1 1 40 10
+exec 3>&-
+_content=$(sed 's/\033\[[0-9;]*[A-Za-z]//g' "$_out")
+assert_contains "$_content" "╔"
+rm -f "$_out"
+
+ptyunit_test_begin "modal_render: with title shows title text"
+_reset_modal
+SHELLFRAME_MODAL_TITLE="Confirm"
+SHELLFRAME_MODAL_MESSAGE="Are you sure?"
+shellframe_modal_init
+_out=$(mktemp)
+exec 3>"$_out"
+shellframe_modal_render 1 1 40 10
+exec 3>&-
+_content=$(sed 's/\033\[[0-9;]*[A-Za-z]//g' "$_out")
+assert_contains "$_content" "Confirm"
+rm -f "$_out"
+
+ptyunit_test_begin "modal_render: fixed width/height honored"
+_reset_modal
+SHELLFRAME_MODAL_MESSAGE="Fixed size"
+SHELLFRAME_MODAL_WIDTH=30
+SHELLFRAME_MODAL_HEIGHT=8
+shellframe_modal_init
+_out=$(mktemp)
+exec 3>"$_out"
+shellframe_modal_render 1 1 80 24
+exec 3>&-
+_content=$(sed 's/\033\[[0-9;]*[A-Za-z]//g' "$_out")
+assert_contains "$_content" "Fixed size"
+rm -f "$_out"
+
 ptyunit_test_summary
