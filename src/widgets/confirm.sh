@@ -4,6 +4,10 @@
 # GLOBALS (set by caller before calling shellframe_confirm):
 #   none — all configuration is passed as arguments
 #
+# GLOBALS (observable after a call returns):
+#   SHELLFRAME_CONFIRM_SELECTED — 0=Yes highlighted, 1=No highlighted (last state on exit)
+#   SHELLFRAME_CONFIRM_RESULT   — 0=Yes, 1=No (result of last call; -1 before first call)
+#
 # API:
 #   shellframe_confirm <question> [detail ...]
 #
@@ -19,6 +23,32 @@
 #   n / N        select No and confirm immediately
 #   Enter / c    confirm current selection (default: Yes)
 #   Esc / q / Q  cancel (same as No)
+
+SHELLFRAME_CONFIRM_SELECTED=0   # 0 = Yes highlighted, 1 = No highlighted
+SHELLFRAME_CONFIRM_RESULT=-1    # 0 = Yes, 1 = No (set by _on_key on exit)
+
+# _shellframe_confirm_on_key key
+# Handles one keypress. Mutates SHELLFRAME_CONFIRM_SELECTED and SHELLFRAME_CONFIRM_RESULT.
+# Returns: 0 = selection changed (redraw needed)
+#          1 = key not handled
+#          2 = done (check SHELLFRAME_CONFIRM_RESULT: 0=yes, 1=no)
+_shellframe_confirm_on_key() {
+    local _key="$1"
+    if   [[ "$_key" == "$SHELLFRAME_KEY_LEFT"  || "$_key" == 'h' || "$_key" == 'H' ]]; then
+        SHELLFRAME_CONFIRM_SELECTED=0; return 0
+    elif [[ "$_key" == "$SHELLFRAME_KEY_RIGHT" || "$_key" == 'l' || "$_key" == 'L' ]]; then
+        SHELLFRAME_CONFIRM_SELECTED=1; return 0
+    elif [[ "$_key" == 'y' || "$_key" == 'Y' ]]; then
+        SHELLFRAME_CONFIRM_RESULT=0; return 2
+    elif [[ "$_key" == 'n' || "$_key" == 'N' ]]; then
+        SHELLFRAME_CONFIRM_RESULT=1; return 2
+    elif [[ "$_key" == "$SHELLFRAME_KEY_ENTER" || "$_key" == 'c' || "$_key" == 'C' ]]; then
+        SHELLFRAME_CONFIRM_RESULT=$SHELLFRAME_CONFIRM_SELECTED; return 2
+    elif [[ "$_key" == "$SHELLFRAME_KEY_ESC"   || "$_key" == 'q' || "$_key" == 'Q' ]]; then
+        SHELLFRAME_CONFIRM_RESULT=1; return 2
+    fi
+    return 1
+}
 
 shellframe_confirm() {
     local _question="${1:-Are you sure?}"
@@ -198,28 +228,22 @@ shellframe_confirm() {
     _cf_draw
 
     # ── input loop ────────────────────────────────────────────────────────────
+    SHELLFRAME_CONFIRM_SELECTED=0
+    SHELLFRAME_CONFIRM_RESULT=-1
     while true; do
-        local _key
+        local _key _krc
         shellframe_read_key _key
-
-        if   [[ "$_key" == "$SHELLFRAME_KEY_LEFT"  || "$_key" == 'h' || "$_key" == 'H' ]]; then
-            _selected=0
+        _shellframe_confirm_on_key "$_key"
+        _krc=$?
+        if   (( _krc == 2 )); then
+            _retval=$SHELLFRAME_CONFIRM_RESULT
+            break
+        elif (( _krc == 0 )); then
+            _selected=$SHELLFRAME_CONFIRM_SELECTED
             _dirty=1
-        elif [[ "$_key" == "$SHELLFRAME_KEY_RIGHT" || "$_key" == 'l' || "$_key" == 'L' ]]; then
-            _selected=1
-            _dirty=1
-        elif [[ "$_key" == 'y' || "$_key" == 'Y' ]]; then
-            _retval=0; break
-        elif [[ "$_key" == 'n' || "$_key" == 'N' ]]; then
-            _retval=1; break
-        elif [[ "$_key" == "$SHELLFRAME_KEY_ENTER" || "$_key" == 'c' || "$_key" == 'C' ]]; then
-            _retval=$_selected; break
-        elif [[ "$_key" == "$SHELLFRAME_KEY_ESC"   || "$_key" == 'q' || "$_key" == 'Q' ]]; then
-            _retval=1; break
-        else
-            continue
+            _cf_draw
         fi
-        _cf_draw
+        # _krc == 1: unhandled key — no redraw, no state change; loop continues
     done
 
     # ── teardown ──────────────────────────────────────────────────────────────
