@@ -23,4 +23,8 @@ ptyunit_test_begin "diff-view: right footer visible"
 out=$(_pty ENTER)
 assert_contains "$out" "b/foo.sh"
 
+ptyunit_test_begin "diff-view: diff content line rendered"
+out=$(_pty ENTER)
+assert_contains "$out" "context line"
+
 ptyunit_test_summary

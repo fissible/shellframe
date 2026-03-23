@@ -73,6 +73,12 @@ _top=""
 shellframe_scroll_top "dv_left" _top
 assert_eq "0" "$_top" "back at top"
 
+ptyunit_test_begin "diff_view_on_key: Page Up handled"
+_setup_diff
+shellframe_diff_view_init
+shellframe_diff_view_on_key "$SHELLFRAME_KEY_PAGE_UP"
+assert_eq "0" "$?" "Page Up returns 0"
+
 ptyunit_test_begin "diff_view_on_key: Page Down handled"
 _setup_diff
 shellframe_diff_view_init
