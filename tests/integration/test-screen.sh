@@ -11,11 +11,7 @@ source "$TESTS_DIR/ptyunit/assert.sh"
 
 _pty() { python3 "$PTY_RUN" "$SCRIPT" "$@" 2>/dev/null; }
 
-ptyunit_test_begin "screen: enter/exit completes without error"
-out=$(_pty)
-assert_contains "$out" "screen-test-done"
-
-ptyunit_test_begin "screen: raw_save/enter/exit roundtrip succeeds"
+ptyunit_test_begin "screen: full enter/cursor/raw/exit sequence completes without error"
 out=$(_pty)
 assert_contains "$out" "screen-test-done"
 
