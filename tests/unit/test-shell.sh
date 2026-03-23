@@ -207,4 +207,66 @@ shellframe_shell_focus_set "modal"
 _shellframe_shell_focus_init
 assert_output "modal" _shellframe_shell_focus_owner
 
+# ── _shellframe_shell_focus_prev: idx 1 → 0 ──────────────────────────────────
+
+ptyunit_test_begin "shell_focus: Shift-Tab retreats focus from idx 1 to 0"
+_reset_shell
+shellframe_shell_region a 1 1 80 10 focus
+shellframe_shell_region b 11 1 80 10 focus
+_shellframe_shell_focus_init
+_SHELLFRAME_SHELL_FOCUS_IDX=1
+_shellframe_shell_focus_prev
+assert_eq "0" "$_SHELLFRAME_SHELL_FOCUS_IDX" "focus retreated to first region"
+
+# ── _shellframe_shell_focus_init: prev name not in new ring ───────────────────
+
+ptyunit_test_begin "focus_init: prev region no longer in ring resets to 0"
+_reset_shell
+shellframe_shell_region a 1 1 80 10 focus
+shellframe_shell_region b 11 1 80 10 focus
+_shellframe_shell_focus_init
+_SHELLFRAME_SHELL_FOCUS_IDX=1   # "b" is focused
+# Re-init without "b" in the ring
+_SHELLFRAME_SHELL_REGIONS=()
+shellframe_shell_region a 1 1 80 10 focus
+shellframe_shell_region c 21 1 80 10 focus
+_shellframe_shell_focus_init
+assert_eq "0" "$_SHELLFRAME_SHELL_FOCUS_IDX" "idx reset to 0 when prev name gone"
+
+# ── _shellframe_shell_terminal_size ────────────────────────────────────────────
+
+ptyunit_test_begin "terminal_size: stores rows in out_var"
+_SHELLFRAME_SHELL_ROWS=30
+_SHELLFRAME_SHELL_COLS=100
+_tr="" _tc=""
+_shellframe_shell_terminal_size _tr _tc
+assert_eq "30" "$_tr" "rows stored correctly"
+assert_eq "100" "$_tc" "cols stored correctly"
+
+ptyunit_test_begin "terminal_size: default fallback is 24 rows 80 cols"
+_SHELLFRAME_SHELL_ROWS=24
+_SHELLFRAME_SHELL_COLS=80
+_tr="" _tc=""
+_shellframe_shell_terminal_size _tr _tc
+assert_eq "24" "$_tr" "default rows = 24"
+assert_eq "80" "$_tc" "default cols = 80"
+
+# ── _shellframe_shell_focus_owner: idx out of range ───────────────────────────
+
+ptyunit_test_begin "focus_owner: idx out of range returns empty"
+_reset_shell
+shellframe_shell_region main 2 1 80 20 focus
+_shellframe_shell_focus_init
+_SHELLFRAME_SHELL_FOCUS_IDX=99
+_shellframe_shell_focus_owner _owner2
+assert_eq "" "$_owner2" "out-of-range idx returns empty"
+
+# ── shellframe_shell_focus_set: overwrites previous request ───────────────────
+
+ptyunit_test_begin "shell_focus_set: overwrites a pending request"
+_reset_shell
+shellframe_shell_focus_set "first"
+shellframe_shell_focus_set "second"
+assert_eq "second" "$_SHELLFRAME_SHELL_FOCUS_REQUEST" "second request overwrites first"
+
 ptyunit_test_summary
