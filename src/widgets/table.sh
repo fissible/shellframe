@@ -88,6 +88,54 @@ SHELLFRAME_TBL_PANEL_FN=""
 SHELLFRAME_TBL_BELOW_FN=""
 SHELLFRAME_TBL_BELOW_ROWS=0
 
+# _shellframe_table_on_key key n_items
+# Handles one keypress for the table widget.
+# Reads/writes: SHELLFRAME_TBL_SELECTED, SHELLFRAME_TBL_ACTIONS[], SHELLFRAME_TBL_IDX[]
+# Returns: 0 = cursor/cycle changed (dirty)
+#          1 = key not handled
+#          2 = confirm (Enter/c/C)
+#          3 = quit (q/Q)
+_shellframe_table_on_key() {
+    local _key="$1" _n="$2"
+    if   [[ "$_key" == "$SHELLFRAME_KEY_UP" ]]; then
+        (( SHELLFRAME_TBL_SELECTED > 0 )) && (( SHELLFRAME_TBL_SELECTED-- )) || true
+        return 0
+    elif [[ "$_key" == "$SHELLFRAME_KEY_DOWN" ]]; then
+        (( SHELLFRAME_TBL_SELECTED < _n - 1 )) && (( SHELLFRAME_TBL_SELECTED++ )) || true
+        return 0
+    elif [[ "$_key" == "$SHELLFRAME_KEY_RIGHT" || "$_key" == "$SHELLFRAME_KEY_SPACE" ]]; then
+        local -a _cur_acts
+        IFS=' ' read -r -a _cur_acts <<< "${SHELLFRAME_TBL_ACTIONS[$SHELLFRAME_TBL_SELECTED]}"
+        SHELLFRAME_TBL_IDX[$SHELLFRAME_TBL_SELECTED]=$(( (SHELLFRAME_TBL_IDX[$SHELLFRAME_TBL_SELECTED] + 1) % ${#_cur_acts[@]} ))
+        return 0
+    elif [[ "$_key" == "$SHELLFRAME_KEY_ENTER" || "$_key" == 'c' || "$_key" == 'C' ]]; then
+        return 2
+    elif [[ "$_key" == 'q' || "$_key" == 'Q' ]]; then
+        return 3
+    fi
+    return 1
+}
+
+# _shellframe_table_scroll_check visible_rows
+# Adjusts SHELLFRAME_TBL_SCROLL so that SHELLFRAME_TBL_SELECTED stays within
+# the viewport [SHELLFRAME_TBL_SCROLL, SHELLFRAME_TBL_SCROLL + visible_rows).
+# Returns: 0 if SHELLFRAME_TBL_SCROLL changed, 1 if unchanged.
+_shellframe_table_scroll_check() {
+    local _vr="$1"
+    local _new_scroll=$SHELLFRAME_TBL_SCROLL
+    if (( SHELLFRAME_TBL_SELECTED < _new_scroll )); then
+        _new_scroll=$SHELLFRAME_TBL_SELECTED
+    fi
+    if (( SHELLFRAME_TBL_SELECTED >= _new_scroll + _vr )); then
+        _new_scroll=$(( SHELLFRAME_TBL_SELECTED - _vr + 1 ))
+    fi
+    if (( _new_scroll != SHELLFRAME_TBL_SCROLL )); then
+        SHELLFRAME_TBL_SCROLL=$_new_scroll
+        return 0
+    fi
+    return 1
+}
+
 shellframe_table() {
     local _draw_row_fn="${1:-}"
     local _extra_key_fn="${2:-}"
@@ -172,26 +220,8 @@ shellframe_table() {
 
         if (( _dirty == 1 )); then
             # ── Partial redraw: scroll-boundary check ─────────────────────
-            # We must NOT modify SHELLFRAME_TBL_SCROLL here (the actual
-            # clamping only happens inside the full-draw path below).
-            #
-            # Strategy: simulate what the clamping would produce into a local
-            # _new_scroll, starting from the current SHELLFRAME_TBL_SCROLL
-            # (the "snapshot before"). Compare _new_scroll to the original
-            # SHELLFRAME_TBL_SCROLL ("check after"). If they differ, the
-            # viewport would shift — escalate to _dirty=2 so the full-draw
-            # path can apply the actual clamp and repaint the whole viewport.
-            local _new_scroll=$SHELLFRAME_TBL_SCROLL   # snapshot before clamping
-            if (( SHELLFRAME_TBL_SELECTED < _new_scroll )); then
-                _new_scroll=$SHELLFRAME_TBL_SELECTED
-            fi
-            if (( SHELLFRAME_TBL_SELECTED >= _new_scroll + _tbl_vr )); then
-                _new_scroll=$(( SHELLFRAME_TBL_SELECTED - _tbl_vr + 1 ))
-            fi
-            # compare simulated post-clamp value to the snapshot
-            if (( _new_scroll != SHELLFRAME_TBL_SCROLL )); then
-                _dirty=2   # viewport shift — need full redraw
-            fi
+            # If the viewport needs to shift, escalate to a full redraw.
+            _shellframe_table_scroll_check "$_tbl_vr" && _dirty=2
         fi
 
         if (( _dirty == 2 )); then
@@ -282,12 +312,7 @@ shellframe_table() {
             (( _visible_rows < 1 )) && _visible_rows=1
 
             # Scroll adjustment
-            if (( SHELLFRAME_TBL_SELECTED < SHELLFRAME_TBL_SCROLL )); then
-                SHELLFRAME_TBL_SCROLL=$SHELLFRAME_TBL_SELECTED
-            fi
-            if (( SHELLFRAME_TBL_SELECTED >= SHELLFRAME_TBL_SCROLL + _visible_rows )); then
-                SHELLFRAME_TBL_SCROLL=$(( SHELLFRAME_TBL_SELECTED - _visible_rows + 1 ))
-            fi
+            _shellframe_table_scroll_check "$_visible_rows"
 
             local _dai
             for (( _dai=0; _dai<_visible_rows; _dai++ )); do
@@ -380,23 +405,15 @@ shellframe_table() {
         _prev_sel=$SHELLFRAME_TBL_SELECTED   # snapshot before key handling
         shellframe_read_key _key
 
-        if   [[ "$_key" == "$SHELLFRAME_KEY_UP" ]]; then
-            (( SHELLFRAME_TBL_SELECTED > 0 )) && (( SHELLFRAME_TBL_SELECTED-- )) || true
+        _shellframe_table_on_key "$_key" "$_n"
+        local _krc=$?
+
+        if   (( _krc == 2 )); then
+            _tbl_retval=0; break
+        elif (( _krc == 3 )); then
+            _tbl_retval=1; break
+        elif (( _krc == 0 )); then
             _dirty=1
-        elif [[ "$_key" == "$SHELLFRAME_KEY_DOWN" ]]; then
-            (( SHELLFRAME_TBL_SELECTED < _n - 1 )) && (( SHELLFRAME_TBL_SELECTED++ )) || true
-            _dirty=1
-        elif [[ "$_key" == "$SHELLFRAME_KEY_RIGHT" || "$_key" == "$SHELLFRAME_KEY_SPACE" ]]; then
-            local -a _cur_acts
-            IFS=' ' read -r -a _cur_acts <<< "${SHELLFRAME_TBL_ACTIONS[$SHELLFRAME_TBL_SELECTED]}"
-            SHELLFRAME_TBL_IDX[$SHELLFRAME_TBL_SELECTED]=$(( (SHELLFRAME_TBL_IDX[$SHELLFRAME_TBL_SELECTED] + 1) % ${#_cur_acts[@]} ))
-            _dirty=1
-        elif [[ "$_key" == "$SHELLFRAME_KEY_ENTER" || "$_key" == 'c' || "$_key" == 'C' ]]; then
-            _tbl_retval=0
-            break
-        elif [[ "$_key" == 'q' || "$_key" == 'Q' ]]; then
-            _tbl_retval=1
-            break
         elif [[ -n "$_extra_key_fn" ]]; then
             "$_extra_key_fn" "$_key"
             local _xrc=$?
