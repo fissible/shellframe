@@ -130,4 +130,115 @@ shellframe_panel_inner 1 1 20 10 _ot _ol _ow _oh
 assert_eq "2" "$_ot" "framed: top offset by border only"
 assert_eq "8" "$_oh" "framed: height reduced by border*2 only"
 
+# ── shellframe_panel_render: fd 3 output ─────────────────────────────────────
+
+ptyunit_test_begin "panel_render: single border writes top-left corner"
+SHELLFRAME_PANEL_STYLE="single"
+SHELLFRAME_PANEL_TITLE=""
+SHELLFRAME_PANEL_MODE="framed"
+_out=$(mktemp)
+exec 3>"$_out"
+shellframe_panel_render 1 1 20 5
+exec 3>&-
+_content=$(sed 's/\033\[[0-9;]*[A-Za-z]//g' "$_out")
+assert_contains "$_content" "┌"
+rm -f "$_out"
+
+ptyunit_test_begin "panel_render: double border writes double-line corner"
+SHELLFRAME_PANEL_STYLE="double"
+SHELLFRAME_PANEL_TITLE=""
+SHELLFRAME_PANEL_MODE="framed"
+_out=$(mktemp)
+exec 3>"$_out"
+shellframe_panel_render 1 1 20 5
+exec 3>&-
+_content=$(sed 's/\033\[[0-9;]*[A-Za-z]//g' "$_out")
+assert_contains "$_content" "╔"
+rm -f "$_out"
+
+ptyunit_test_begin "panel_render: rounded border writes rounded corner"
+SHELLFRAME_PANEL_STYLE="rounded"
+SHELLFRAME_PANEL_TITLE=""
+SHELLFRAME_PANEL_MODE="framed"
+_out=$(mktemp)
+exec 3>"$_out"
+shellframe_panel_render 1 1 20 5
+exec 3>&-
+_content=$(sed 's/\033\[[0-9;]*[A-Za-z]//g' "$_out")
+assert_contains "$_content" "╭"
+rm -f "$_out"
+
+ptyunit_test_begin "panel_render: none border writes spaces only (no box chars)"
+SHELLFRAME_PANEL_STYLE="none"
+SHELLFRAME_PANEL_TITLE=""
+SHELLFRAME_PANEL_MODE="framed"
+_out=$(mktemp)
+exec 3>"$_out"
+shellframe_panel_render 1 1 20 5
+exec 3>&-
+_content=$(sed 's/\033\[[0-9;]*[A-Za-z]//g' "$_out")
+assert_not_contains "$_content" "┌"
+assert_not_contains "$_content" "╔"
+rm -f "$_out"
+
+ptyunit_test_begin "panel_render: framed title is embedded in top border"
+SHELLFRAME_PANEL_STYLE="single"
+SHELLFRAME_PANEL_TITLE="MyTitle"
+SHELLFRAME_PANEL_TITLE_ALIGN="left"
+SHELLFRAME_PANEL_MODE="framed"
+_out=$(mktemp)
+exec 3>"$_out"
+shellframe_panel_render 1 1 30 5
+exec 3>&-
+_content=$(sed 's/\033\[[0-9;]*[A-Za-z]//g' "$_out")
+assert_contains "$_content" "MyTitle"
+rm -f "$_out"
+
+ptyunit_test_begin "panel_render: windowed mode renders title in title bar row"
+SHELLFRAME_PANEL_STYLE="single"
+SHELLFRAME_PANEL_TITLE="WinTitle"
+SHELLFRAME_PANEL_MODE="windowed"
+SHELLFRAME_PANEL_TITLE_BG=""
+_out=$(mktemp)
+exec 3>"$_out"
+shellframe_panel_render 1 1 30 6
+exec 3>&-
+_content=$(sed 's/\033\[[0-9;]*[A-Za-z]//g' "$_out")
+assert_contains "$_content" "WinTitle"
+rm -f "$_out"
+
+# ── _shellframe_panel_chars: all styles ───────────────────────────────────────
+
+ptyunit_test_begin "panel_chars: double style sets double-line glyphs"
+_shellframe_panel_chars "double"
+assert_eq "╔" "$_tl" "double top-left"
+assert_eq "═" "$_hr" "double horiz-rule"
+assert_eq "╚" "$_bl" "double bot-left"
+
+ptyunit_test_begin "panel_chars: rounded style sets rounded glyphs"
+_shellframe_panel_chars "rounded"
+assert_eq "╭" "$_tl" "rounded top-left"
+assert_eq "╰" "$_bl" "rounded bot-left"
+
+ptyunit_test_begin "panel_chars: none style sets spaces"
+_shellframe_panel_chars "none"
+assert_eq " " "$_tl" "none: space corner"
+assert_eq " " "$_hr" "none: space fill"
+
+ptyunit_test_begin "panel_chars: single (default) style sets single-line glyphs"
+_shellframe_panel_chars "single"
+assert_eq "┌" "$_tl" "single top-left"
+assert_eq "─" "$_hr" "single horiz-rule"
+
+ptyunit_test_begin "panel_chars: unknown style falls through to single"
+_shellframe_panel_chars "bogus"
+assert_eq "┌" "$_tl" "unknown → single top-left"
+
+# ── shellframe_panel_on_focus: default arg ────────────────────────────────────
+
+ptyunit_test_begin "panel_on_focus: no arg defaults to 0"
+SHELLFRAME_PANEL_FOCUSED=1
+shellframe_panel_on_focus
+assert_eq "0" "$SHELLFRAME_PANEL_FOCUSED" "default arg sets 0"
+
 ptyunit_test_summary
