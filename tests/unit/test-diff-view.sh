@@ -20,6 +20,37 @@ _setup_diff() {
     SHELLFRAME_DIFF_FILE_STATUS=()
 }
 
+# Full diff covering all row types for render tests
+_setup_render_diff() {
+    SHELLFRAME_DIFF_TYPES=("hdr" "file_sep" "ctx" "add" "del" "chg" "sep")
+    SHELLFRAME_DIFF_LEFT=("src/old.sh" "" "context line" "" "deleted line" "old version" "")
+    SHELLFRAME_DIFF_RIGHT=("src/new.sh" "" "context line" "added line" "" "new version" "")
+    SHELLFRAME_DIFF_LNUMS=("" "" "10" "" "12" "14" "")
+    SHELLFRAME_DIFF_RNUMS=("" "" "10" "11" "" "13" "")
+    SHELLFRAME_DIFF_ROW_COUNT=7
+    SHELLFRAME_DIFF_FILE_ROWS=(0)
+    SHELLFRAME_DIFF_FILE_STATUS=("modified")
+    SHELLFRAME_DIFF_VIEW_HIDE_FILE_HDR=0
+    SHELLFRAME_DIFF_VIEW_HL_ENABLED=0
+    SHELLFRAME_DIFF_VIEW_LEFT_FOOTER=""
+    SHELLFRAME_DIFF_VIEW_RIGHT_FOOTER=""
+    SHELLFRAME_DIFF_VIEW_LEFT_DATE=""
+    SHELLFRAME_DIFF_VIEW_RIGHT_DATE=""
+}
+
+# Helper: call a render fn with fd 3 → temp file; return ANSI-stripped output.
+# Usage: _c=$(_dv_capture fn arg...)
+_dv_capture() {
+    local _fn="$1"; shift
+    local _f
+    _f=$(mktemp "${TMPDIR:-/tmp}/sf-test-dv.XXXXXX")
+    exec 3>"$_f"
+    "$_fn" "$@"
+    exec 3>&- 2>/dev/null || true
+    sed 's/\033\[[0-9;]*[A-Za-z]//g' "$_f"
+    rm -f "$_f"
+}
+
 # ── shellframe_diff_view_init ────────────────────────────────────────────────
 
 ptyunit_test_begin "diff_view_init: initialises scroll context dv_left"
@@ -108,5 +139,146 @@ ptyunit_test_begin "diff_view_on_focus: sets FOCUSED=0"
 SHELLFRAME_DIFF_VIEW_FOCUSED=1
 shellframe_diff_view_on_focus 0
 assert_eq "0" "$SHELLFRAME_DIFF_VIEW_FOCUSED" "FOCUSED=0"
+
+# ── _shellframe_dv_clip_ansi ─────────────────────────────────────────────────
+
+ptyunit_test_begin "dv_clip_ansi: clips plain text to max width"
+_shellframe_dv_clip_ansi "hello world" 5 _r
+assert_eq "hello" "$_r"
+
+ptyunit_test_begin "dv_clip_ansi: returns full string when shorter than max"
+_shellframe_dv_clip_ansi "hi" 10 _r
+assert_eq "hi" "$_r"
+
+ptyunit_test_begin "dv_clip_ansi: empty string yields empty result"
+_shellframe_dv_clip_ansi "" 5 _r
+assert_eq "" "$_r"
+
+ptyunit_test_begin "dv_clip_ansi: ANSI escape is zero-width"
+_shellframe_dv_clip_ansi $'\033[31mhello\033[0m' 3 _r
+assert_contains "$_r" $'\033[31m'
+assert_not_contains "$_r" "lo"
+
+# ── _shellframe_dv_render_pane ───────────────────────────────────────────────
+
+ptyunit_test_begin "dv_render_pane: ctx row text visible on left pane"
+_setup_render_diff
+shellframe_diff_view_init
+_c=$(_dv_capture _shellframe_dv_render_pane 1 1 40 10 "left")
+assert_contains "$_c" "context line"
+
+ptyunit_test_begin "dv_render_pane: ctx row line number visible on left pane"
+_setup_render_diff
+shellframe_diff_view_init
+_c=$(_dv_capture _shellframe_dv_render_pane 1 1 40 10 "left")
+assert_contains "$_c" "10"
+
+ptyunit_test_begin "dv_render_pane: add row is blank on left pane"
+_setup_render_diff
+shellframe_diff_view_init
+_c=$(_dv_capture _shellframe_dv_render_pane 1 1 40 10 "left")
+assert_not_contains "$_c" "added line"
+
+ptyunit_test_begin "dv_render_pane: add row shows content on right pane"
+_setup_render_diff
+shellframe_diff_view_init
+_c=$(_dv_capture _shellframe_dv_render_pane 1 1 40 10 "right")
+assert_contains "$_c" "added line"
+
+ptyunit_test_begin "dv_render_pane: del row shows content on left pane"
+_setup_render_diff
+shellframe_diff_view_init
+_c=$(_dv_capture _shellframe_dv_render_pane 1 1 40 10 "left")
+assert_contains "$_c" "deleted line"
+
+ptyunit_test_begin "dv_render_pane: del row is blank on right pane"
+_setup_render_diff
+shellframe_diff_view_init
+_c=$(_dv_capture _shellframe_dv_render_pane 1 1 40 10 "right")
+assert_not_contains "$_c" "deleted line"
+
+ptyunit_test_begin "dv_render_pane: chg row shows old content on left pane"
+_setup_render_diff
+shellframe_diff_view_init
+_c=$(_dv_capture _shellframe_dv_render_pane 1 1 40 10 "left")
+assert_contains "$_c" "old version"
+
+ptyunit_test_begin "dv_render_pane: chg row shows new content on right pane"
+_setup_render_diff
+shellframe_diff_view_init
+_c=$(_dv_capture _shellframe_dv_render_pane 1 1 40 10 "right")
+assert_contains "$_c" "new version"
+
+ptyunit_test_begin "dv_render_pane: hdr row shows filename on left pane"
+_setup_render_diff
+shellframe_diff_view_init
+_c=$(_dv_capture _shellframe_dv_render_pane 1 1 40 10 "left")
+assert_contains "$_c" "src/old.sh"
+
+ptyunit_test_begin "dv_render_pane: file_sep row renders horizontal rule"
+_setup_render_diff
+shellframe_diff_view_init
+_c=$(_dv_capture _shellframe_dv_render_pane 1 1 40 10 "left")
+assert_contains "$_c" "─"
+
+ptyunit_test_begin "dv_render_pane: sep row shows separator marker"
+_setup_render_diff
+shellframe_diff_view_init
+_c=$(_dv_capture _shellframe_dv_render_pane 1 1 40 10 "left")
+assert_contains "$_c" "···"
+
+ptyunit_test_begin "dv_render_pane: HIDE_FILE_HDR suppresses filename in hdr row"
+_setup_render_diff
+SHELLFRAME_DIFF_VIEW_HIDE_FILE_HDR=1
+shellframe_diff_view_init
+_c=$(_dv_capture _shellframe_dv_render_pane 1 1 40 10 "left")
+assert_not_contains "$_c" "src/old.sh"
+SHELLFRAME_DIFF_VIEW_HIDE_FILE_HDR=0
+
+ptyunit_test_begin "dv_render_pane: HIDE_FILE_HDR suppresses file_sep rule"
+_setup_render_diff
+SHELLFRAME_DIFF_VIEW_HIDE_FILE_HDR=1
+shellframe_diff_view_init
+_c=$(_dv_capture _shellframe_dv_render_pane 1 1 40 10 "left")
+assert_not_contains "$_c" "─"
+SHELLFRAME_DIFF_VIEW_HIDE_FILE_HDR=0
+
+# ── shellframe_diff_view_render ──────────────────────────────────────────────
+
+ptyunit_test_begin "diff_view_render: renders ctx content in output"
+_setup_render_diff
+shellframe_diff_view_init
+_c=$(_dv_capture shellframe_diff_view_render 1 1 80 10)
+assert_contains "$_c" "context line"
+
+ptyunit_test_begin "diff_view_render: renders footer text when LEFT_FOOTER is set"
+_setup_render_diff
+SHELLFRAME_DIFF_VIEW_LEFT_FOOTER="main (abc123)"
+shellframe_diff_view_init
+_c=$(_dv_capture shellframe_diff_view_render 1 1 80 10)
+assert_contains "$_c" "main (abc123)"
+SHELLFRAME_DIFF_VIEW_LEFT_FOOTER=""
+
+# ── shellframe_diff_view_render_side ─────────────────────────────────────────
+
+ptyunit_test_begin "diff_view_render_side: left side renders content"
+_setup_render_diff
+shellframe_diff_view_init
+_c=$(_dv_capture shellframe_diff_view_render_side 1 1 40 10 "left")
+assert_contains "$_c" "context line"
+
+ptyunit_test_begin "diff_view_render_side: left side with footer shows footer text"
+_setup_render_diff
+SHELLFRAME_DIFF_VIEW_LEFT_FOOTER="feature/test"
+shellframe_diff_view_init
+_c=$(_dv_capture shellframe_diff_view_render_side 1 1 40 10 "left")
+assert_contains "$_c" "feature/test"
+SHELLFRAME_DIFF_VIEW_LEFT_FOOTER=""
+
+ptyunit_test_begin "diff_view_render_side: right side renders content"
+_setup_render_diff
+shellframe_diff_view_init
+_c=$(_dv_capture shellframe_diff_view_render_side 1 1 40 10 "right")
+assert_contains "$_c" "context line"
 
 ptyunit_test_summary
