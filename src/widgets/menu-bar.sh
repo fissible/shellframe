@@ -91,7 +91,24 @@ _shellframe_mb_parse_sigil() {
     return 0
 }
 
-shellframe_menubar_init()   { true; }
+shellframe_menubar_init() {
+    local _ctx="${1:-${SHELLFRAME_MENUBAR_CTX:-menubar}}"
+    # State machine
+    printf -v "_SHELLFRAME_MB_${_ctx}_STATE"   '%s' "idle"
+    printf -v "_SHELLFRAME_MB_${_ctx}_BAR_IDX" '%d' 0
+    # Prev panel dimensions (0 = nothing to erase)
+    printf -v "_SHELLFRAME_MB_${_ctx}_PREV_DD_TOP"  '%d' 0
+    printf -v "_SHELLFRAME_MB_${_ctx}_PREV_DD_LEFT" '%d' 0
+    printf -v "_SHELLFRAME_MB_${_ctx}_PREV_DD_W"    '%d' 0
+    printf -v "_SHELLFRAME_MB_${_ctx}_PREV_DD_H"    '%d' 0
+    printf -v "_SHELLFRAME_MB_${_ctx}_PREV_SM_TOP"  '%d' 0
+    printf -v "_SHELLFRAME_MB_${_ctx}_PREV_SM_LEFT" '%d' 0
+    printf -v "_SHELLFRAME_MB_${_ctx}_PREV_SM_W"    '%d' 0
+    printf -v "_SHELLFRAME_MB_${_ctx}_PREV_SM_H"    '%d' 0
+    # Selection contexts for dropdown and submenu cursors
+    shellframe_sel_init "mb_${_ctx}_dd" 0
+    shellframe_sel_init "mb_${_ctx}_sm" 0
+}
 shellframe_menubar_render() { true; }
 shellframe_menubar_on_key() { return 1; }
 shellframe_menubar_on_focus() { SHELLFRAME_MENUBAR_FOCUSED="${1:-0}"; }

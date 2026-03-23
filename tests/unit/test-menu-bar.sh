@@ -62,4 +62,29 @@ ptyunit_test_begin "mb_parse_sigil: VARNAME validated against [A-Z0-9_]+"
 _shellframe_mb_parse_sigil "@bad-name:Label" _varname _label
 assert_eq "1" "$?" "invalid VARNAME returns 1"
 
+# ── shellframe_menubar_init ────────────────────────────────────────────────────
+
+ptyunit_test_begin "menubar_init: state starts idle"
+_reset_mb
+_st_var="_SHELLFRAME_MB_mb_STATE"
+assert_eq "idle" "${!_st_var}" "state=idle after init"
+
+ptyunit_test_begin "menubar_init: bar_idx starts 0"
+_reset_mb
+_idx_var="_SHELLFRAME_MB_mb_BAR_IDX"
+assert_eq "0" "${!_idx_var}" "bar_idx=0"
+
+ptyunit_test_begin "menubar_init: PREV_DD_W zeroed"
+_reset_mb
+_w_var="_SHELLFRAME_MB_mb_PREV_DD_W"
+assert_eq "0" "${!_w_var}" "PREV_DD_W=0"
+
+ptyunit_test_begin "menubar_init: dropdown sel context created"
+_reset_mb
+assert_output "0" shellframe_sel_cursor "mb_mb_dd"
+
+ptyunit_test_begin "menubar_init: submenu sel context created"
+_reset_mb
+assert_output "0" shellframe_sel_cursor "mb_mb_sm"
+
 ptyunit_test_summary
