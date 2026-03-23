@@ -103,6 +103,26 @@ _reset_confirm
 _shellframe_confirm_on_key "Q"
 assert_eq "1" "$SHELLFRAME_CONFIRM_RESULT" "Q → No"
 
+# ── Uppercase aliases ────────────────────────────────────────────────────────
+
+ptyunit_test_begin "confirm_on_key: H selects Yes"
+_reset_confirm
+SHELLFRAME_CONFIRM_SELECTED=1
+_shellframe_confirm_on_key "H"
+assert_eq "0" "$SHELLFRAME_CONFIRM_SELECTED" "H → Yes"
+
+ptyunit_test_begin "confirm_on_key: L selects No"
+_reset_confirm
+_shellframe_confirm_on_key "L"
+assert_eq "1" "$SHELLFRAME_CONFIRM_SELECTED" "L → No"
+
+ptyunit_test_begin "confirm_on_key: C confirms current selection"
+_reset_confirm
+SHELLFRAME_CONFIRM_SELECTED=0
+_shellframe_confirm_on_key "C"
+assert_eq "2" "$?" "C returns 2"
+assert_eq "0" "$SHELLFRAME_CONFIRM_RESULT" "C → Yes"
+
 # ── Unhandled keys ───────────────────────────────────────────────────────────
 
 ptyunit_test_begin "confirm_on_key: unhandled key returns 1"

@@ -281,4 +281,85 @@ shellframe_diff_view_init
 _c=$(_dv_capture shellframe_diff_view_render_side 1 1 40 10 "right")
 assert_contains "$_c" "context line"
 
+ptyunit_test_begin "diff_view_render_side: right side with footer shows footer text"
+_setup_render_diff
+SHELLFRAME_DIFF_VIEW_RIGHT_FOOTER="feature/right-branch"
+shellframe_diff_view_init
+_c=$(_dv_capture shellframe_diff_view_render_side 1 1 40 10 "right")
+assert_contains "$_c" "feature/right-branch"
+SHELLFRAME_DIFF_VIEW_RIGHT_FOOTER=""
+
+# ── Syntax highlighting ───────────────────────────────────────────────────────
+
+ptyunit_test_begin "dv_render_pane: HL_ENABLED uses hl text instead of plain on left pane"
+_setup_render_diff
+SHELLFRAME_DIFF_VIEW_HL_ENABLED=1
+SHELLFRAME_DIFF_VIEW_HL_LEFT=("" "" "hl-context-left" "" "" "" "")
+shellframe_diff_view_init
+_c=$(_dv_capture _shellframe_dv_render_pane 1 1 40 10 "left")
+assert_contains "$_c" "hl-context-left"
+assert_not_contains "$_c" "context line"
+SHELLFRAME_DIFF_VIEW_HL_ENABLED=0
+SHELLFRAME_DIFF_VIEW_HL_LEFT=()
+
+ptyunit_test_begin "dv_render_pane: HL_ENABLED uses hl text on right pane"
+_setup_render_diff
+SHELLFRAME_DIFF_VIEW_HL_ENABLED=1
+SHELLFRAME_DIFF_VIEW_HL_RIGHT=("" "" "hl-context-right" "" "" "" "")
+shellframe_diff_view_init
+_c=$(_dv_capture _shellframe_dv_render_pane 1 1 40 10 "right")
+assert_contains "$_c" "hl-context-right"
+SHELLFRAME_DIFF_VIEW_HL_ENABLED=0
+SHELLFRAME_DIFF_VIEW_HL_RIGHT=()
+
+# ── hdr row file status variants ─────────────────────────────────────────────
+
+ptyunit_test_begin "dv_render_pane: hdr status=deleted shows label on left pane"
+_setup_render_diff
+SHELLFRAME_DIFF_FILE_STATUS=("deleted")
+shellframe_diff_view_init
+_c=$(_dv_capture _shellframe_dv_render_pane 1 1 40 10 "left")
+assert_contains "$_c" "deleted"
+
+ptyunit_test_begin "dv_render_pane: hdr status=added shows label on right pane"
+_setup_render_diff
+SHELLFRAME_DIFF_FILE_STATUS=("added")
+shellframe_diff_view_init
+_c=$(_dv_capture _shellframe_dv_render_pane 1 1 40 10 "right")
+assert_contains "$_c" "added"
+
+ptyunit_test_begin "dv_render_pane: hdr status=added shows no label on left pane"
+_setup_render_diff
+SHELLFRAME_DIFF_FILE_STATUS=("added")
+shellframe_diff_view_init
+_c=$(_dv_capture _shellframe_dv_render_pane 1 1 40 10 "left")
+assert_not_contains "$_c" "added"
+
+ptyunit_test_begin "dv_render_pane: hdr status=deleted shows no label on right pane"
+_setup_render_diff
+SHELLFRAME_DIFF_FILE_STATUS=("deleted")
+shellframe_diff_view_init
+_c=$(_dv_capture _shellframe_dv_render_pane 1 1 40 10 "right")
+assert_not_contains "$_c" "deleted"
+
+# ── render footer variants ────────────────────────────────────────────────────
+
+ptyunit_test_begin "diff_view_render: RIGHT_FOOTER renders in footer"
+_setup_render_diff
+SHELLFRAME_DIFF_VIEW_RIGHT_FOOTER="feature/right"
+shellframe_diff_view_init
+_c=$(_dv_capture shellframe_diff_view_render 1 1 80 10)
+assert_contains "$_c" "feature/right"
+SHELLFRAME_DIFF_VIEW_RIGHT_FOOTER=""
+
+ptyunit_test_begin "diff_view_render: LEFT_DATE renders in footer"
+_setup_render_diff
+SHELLFRAME_DIFF_VIEW_LEFT_FOOTER="main"
+SHELLFRAME_DIFF_VIEW_LEFT_DATE="2026-01-01"
+shellframe_diff_view_init
+_c=$(_dv_capture shellframe_diff_view_render 1 1 80 10)
+assert_contains "$_c" "2026-01-01"
+SHELLFRAME_DIFF_VIEW_LEFT_FOOTER=""
+SHELLFRAME_DIFF_VIEW_LEFT_DATE=""
+
 ptyunit_test_summary

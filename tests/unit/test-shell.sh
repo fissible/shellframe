@@ -269,4 +269,60 @@ shellframe_shell_focus_set "first"
 shellframe_shell_focus_set "second"
 assert_eq "second" "$_SHELLFRAME_SHELL_FOCUS_REQUEST" "second request overwrites first"
 
+# ── _shellframe_shell_draw stubs ──────────────────────────────────────────────
+#
+# These stub functions simulate a two-region screen for _shellframe_shell_draw
+# tests.  They write no output (no fd 3), so they are safe in unit tests.
+
+_TST_A_FOCUS=""
+_TST_B_FOCUS=""
+_TST_A_RENDER_CALLED=0
+_TST_B_RENDER_CALLED=0
+
+_tsd_ROOT_render()   {
+    shellframe_shell_region "a" 1  1 80 10 focus
+    shellframe_shell_region "b" 11 1 80 10 focus
+}
+_tsd_ROOT_a_render()   { _TST_A_RENDER_CALLED=1; }
+_tsd_ROOT_b_render()   { _TST_B_RENDER_CALLED=1; }
+_tsd_ROOT_a_on_focus() { _TST_A_FOCUS="$1"; }
+_tsd_ROOT_b_on_focus() { _TST_B_FOCUS="$1"; }
+
+# ── _shellframe_shell_draw ────────────────────────────────────────────────────
+
+ptyunit_test_begin "shell_draw: re-registers regions from scratch"
+_reset_shell
+_shellframe_shell_draw "_tsd" "ROOT"
+assert_eq "2" "${#_SHELLFRAME_SHELL_REGIONS[@]}" "two regions registered after draw"
+
+ptyunit_test_begin "shell_draw: calls each region's render function"
+_reset_shell
+_tsd_ROOT_render
+_shellframe_shell_focus_init
+_TST_A_RENDER_CALLED=0
+_TST_B_RENDER_CALLED=0
+_shellframe_shell_draw "_tsd" "ROOT"
+assert_eq "1" "$_TST_A_RENDER_CALLED" "a_render was called"
+assert_eq "1" "$_TST_B_RENDER_CALLED" "b_render was called"
+
+ptyunit_test_begin "shell_draw: on_focus 1 for focused region, 0 for others"
+_reset_shell
+_tsd_ROOT_render
+_shellframe_shell_focus_init   # ring=[a,b], idx=0 → a focused
+_TST_A_FOCUS="" _TST_B_FOCUS=""
+_shellframe_shell_draw "_tsd" "ROOT"
+assert_eq "1" "$_TST_A_FOCUS" "focused region gets on_focus 1"
+assert_eq "0" "$_TST_B_FOCUS" "non-focused region gets on_focus 0"
+
+ptyunit_test_begin "shell_draw: FOCUS_REQUEST in old ring applied before on_focus"
+_reset_shell
+_tsd_ROOT_render
+_shellframe_shell_focus_init       # ring=[a,b], idx=0 → a focused
+_SHELLFRAME_SHELL_FOCUS_REQUEST="b"
+_TST_A_FOCUS="" _TST_B_FOCUS=""
+_shellframe_shell_draw "_tsd" "ROOT"
+assert_eq "0" "$_TST_A_FOCUS" "a gets on_focus 0"
+assert_eq "1" "$_TST_B_FOCUS" "b gets on_focus 1 (request applied)"
+assert_eq "" "$_SHELLFRAME_SHELL_FOCUS_REQUEST" "request cleared after draw"
+
 ptyunit_test_summary

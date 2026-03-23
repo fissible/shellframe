@@ -792,4 +792,129 @@ assert_eq "0" "$SHELLFRAME_EDITOR_FOCUSED" "focused set to 0"
 ptyunit_test_begin "editor_size: returns 1 1 0 0"
 assert_output "1 1 0 0" shellframe_editor_size
 
+# ── shellframe_editor_get_text: out_var form ──────────────────────────────────
+
+ptyunit_test_begin "get_text: out_var form stores result in named variable"
+_reset
+shellframe_editor_set_text "ed" $'line1\nline2'
+_got=""
+shellframe_editor_get_text "ed" _got
+assert_eq $'line1\nline2' "$_got" "out_var receives full text"
+
+# ── _shellframe_ed_is_printable ───────────────────────────────────────────────
+
+ptyunit_test_begin "is_printable: single printable char returns 0"
+_shellframe_ed_is_printable "a"
+assert_eq "0" "$?" "printable char returns 0"
+
+ptyunit_test_begin "is_printable: multi-char string returns 1"
+_shellframe_ed_is_printable "ab"
+assert_eq "1" "$?" "multi-char string returns 1"
+
+ptyunit_test_begin "is_printable: escape byte returns 1"
+_shellframe_ed_is_printable $'\033'
+assert_eq "1" "$?" "non-printable byte returns 1"
+
+# ── _shellframe_ed_insert_string: empty string ────────────────────────────────
+
+ptyunit_test_begin "insert_string: empty string is a no-op"
+_reset
+shellframe_editor_set_text "ed" "hello"
+shellframe_editor_on_key $'\033[C'
+shellframe_editor_on_key $'\033[C'   # col → 2
+_shellframe_ed_insert_string "ed" ""
+assert_output "hello" shellframe_editor_line "ed" 0
+assert_output "2"     shellframe_editor_col  "ed"
+
+# ── _shellframe_ed_line_segments: zero width ─────────────────────────────────
+
+ptyunit_test_begin "line_segments: width=0 returns full-length single segment"
+assert_output "0:5" _shellframe_ed_line_segments "hello" 0
+
+# ── _shellframe_ed_vrow_count: out_var form ───────────────────────────────────
+
+ptyunit_test_begin "vrow_count: out_var form stores result in named variable"
+_setup_vmap 80 "hello" "world"
+_vc=""
+_shellframe_ed_vrow_count "ed" _vc
+assert_eq "2" "$_vc" "out_var receives row count"
+
+# ── right at EOL of last line ─────────────────────────────────────────────────
+
+ptyunit_test_begin "right: at EOL of last line is no-op"
+_reset
+shellframe_editor_set_text "ed" "hi"
+shellframe_editor_on_key $'\033[F'   # End → col 2
+shellframe_editor_on_key $'\033[C'   # right at last-line EOL → no-op
+assert_output "0" shellframe_editor_row "ed"
+assert_output "2" shellframe_editor_col "ed"
+
+# ── ctrl-k at EOL of last line ────────────────────────────────────────────────
+
+ptyunit_test_begin "ctrl-k: at EOL of last line is no-op"
+_reset
+shellframe_editor_set_text "ed" "hi"
+shellframe_editor_on_key $'\033[F'   # End → col 2
+shellframe_editor_on_key $'\x0b'     # Ctrl-K at EOL of last line → no-op
+assert_output "1"  shellframe_editor_line_count "ed"
+assert_output "hi" shellframe_editor_line "ed" 0
+assert_output "2"  shellframe_editor_col "ed"
+
+# ── no-wrap mode: up/down with goal column ────────────────────────────────────
+
+_reset_nowrap_multiline() {
+    SHELLFRAME_EDITOR_WRAP=0
+    SHELLFRAME_EDITOR_CTX="ed"
+    SHELLFRAME_EDITOR_FOCUSED=0
+    SHELLFRAME_EDITOR_RESULT=""
+    SHELLFRAME_EDITOR_LINES=("hello world" "hi" "goodbye world")
+    shellframe_editor_init "ed" 10
+    printf -v "_SHELLFRAME_ED_ed_VWIDTH" '%d' 20
+}
+
+ptyunit_test_begin "no_wrap move_up: stores goal_col and clamps col on shorter line"
+_reset_nowrap_multiline
+printf -v _SHELLFRAME_ED_ed_ROW      '%d' 2   # row 2: "goodbye world"
+printf -v _SHELLFRAME_ED_ed_COL      '%d' 9   # col 9
+printf -v _SHELLFRAME_ED_ed_GOAL_COL '%d' -1  # fresh goal col
+_shellframe_ed_move_up "ed"
+# "hi" has len=2 → col clamps to 2; GOAL_COL stored as 9
+assert_output "1" shellframe_editor_row "ed"
+assert_output "2" shellframe_editor_col "ed"
+_gc_var="_SHELLFRAME_ED_ed_GOAL_COL"
+assert_eq "9" "${!_gc_var}" "GOAL_COL stored as original col=9"
+
+ptyunit_test_begin "no_wrap move_down: restores goal_col on longer line"
+# State from previous: row=1, col=2, GOAL_COL=9
+_shellframe_ed_move_down "ed"
+# "goodbye world" len=13; GOAL_COL=9 used; 9<=13 → col=9
+assert_output "2" shellframe_editor_row "ed"
+assert_output "9" shellframe_editor_col "ed"
+
+# ── no-wrap mode: page up / down ──────────────────────────────────────────────
+
+_reset_nowrap_page() {
+    SHELLFRAME_EDITOR_WRAP=0
+    SHELLFRAME_EDITOR_CTX="ed"
+    SHELLFRAME_EDITOR_FOCUSED=0
+    SHELLFRAME_EDITOR_RESULT=""
+    SHELLFRAME_EDITOR_LINES=()
+    local _pi
+    for (( _pi=0; _pi<20; _pi++ )); do SHELLFRAME_EDITOR_LINES+=("line${_pi}"); done
+    shellframe_editor_init "ed" 5   # viewport = 5 rows
+}
+
+ptyunit_test_begin "no_wrap page_down: moves cursor down by viewport rows"
+_reset_nowrap_page
+_shellframe_ed_page_down "ed"
+assert_output "5" shellframe_editor_row "ed"
+
+ptyunit_test_begin "no_wrap page_up: moves cursor back up by viewport rows"
+# State from previous: row=5
+_shellframe_ed_page_up "ed"
+assert_output "0" shellframe_editor_row "ed"
+
+# Restore wrap=1 for safety
+SHELLFRAME_EDITOR_WRAP=1
+
 ptyunit_test_summary
