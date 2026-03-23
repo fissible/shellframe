@@ -46,6 +46,34 @@
 SHELLFRAME_AL_SELECTED=0
 SHELLFRAME_AL_SAVED_STTY=""
 
+# _shellframe_action_list_on_key key n_items
+# Handles one keypress for the action-list widget.
+# Reads/writes: SHELLFRAME_AL_SELECTED, SHELLFRAME_AL_ACTIONS[], SHELLFRAME_AL_IDX[]
+# Returns: 0 = cursor/cycle changed (dirty=1)
+#          1 = key not handled
+#          2 = confirm (Enter/c)
+#          3 = quit (q)
+_shellframe_action_list_on_key() {
+    local _key="$1" _n="$2"
+    if   [[ "$_key" == "$SHELLFRAME_KEY_UP" ]]; then
+        (( SHELLFRAME_AL_SELECTED > 0 )) && (( SHELLFRAME_AL_SELECTED-- )) || true
+        return 0
+    elif [[ "$_key" == "$SHELLFRAME_KEY_DOWN" ]]; then
+        (( SHELLFRAME_AL_SELECTED < _n - 1 )) && (( SHELLFRAME_AL_SELECTED++ )) || true
+        return 0
+    elif [[ "$_key" == "$SHELLFRAME_KEY_RIGHT" || "$_key" == "$SHELLFRAME_KEY_SPACE" ]]; then
+        local -a _cur_acts
+        IFS=' ' read -r -a _cur_acts <<< "${SHELLFRAME_AL_ACTIONS[$SHELLFRAME_AL_SELECTED]}"
+        SHELLFRAME_AL_IDX[$SHELLFRAME_AL_SELECTED]=$(( (SHELLFRAME_AL_IDX[$SHELLFRAME_AL_SELECTED] + 1) % ${#_cur_acts[@]} ))
+        return 0
+    elif [[ "$_key" == "$SHELLFRAME_KEY_ENTER" || "$_key" == 'c' || "$_key" == 'C' ]]; then
+        return 2
+    elif [[ "$_key" == 'q' || "$_key" == 'Q' ]]; then
+        return 3
+    fi
+    return 1
+}
+
 shellframe_action_list() {
     local _draw_row_fn="${1:-}"
     local _extra_key_fn="${2:-}"
@@ -151,41 +179,31 @@ shellframe_action_list() {
     # ── Input loop ────────────────────────────────────────────────────────
     local _al_retval=1
     while true; do
-        local _key
-        _prev_sel=$SHELLFRAME_AL_SELECTED   # snapshot before key handling
+        local _key _krc
+        _prev_sel=$SHELLFRAME_AL_SELECTED
         shellframe_read_key _key
 
-        if   [[ "$_key" == "$SHELLFRAME_KEY_UP" ]]; then
-            (( SHELLFRAME_AL_SELECTED > 0 )) && (( SHELLFRAME_AL_SELECTED-- )) || true
+        _shellframe_action_list_on_key "$_key" "$_n"
+        _krc=$?
+
+        if (( _krc == 2 )); then
+            _al_retval=0; break
+        elif (( _krc == 3 )); then
+            _al_retval=1; break
+        elif (( _krc == 0 )); then
             _dirty=1
-        elif [[ "$_key" == "$SHELLFRAME_KEY_DOWN" ]]; then
-            (( SHELLFRAME_AL_SELECTED < _n - 1 )) && (( SHELLFRAME_AL_SELECTED++ )) || true
-            _dirty=1
-        elif [[ "$_key" == "$SHELLFRAME_KEY_RIGHT" || "$_key" == "$SHELLFRAME_KEY_SPACE" ]]; then
-            local -a _cur_acts
-            IFS=' ' read -r -a _cur_acts <<< "${SHELLFRAME_AL_ACTIONS[$SHELLFRAME_AL_SELECTED]}"
-            SHELLFRAME_AL_IDX[$SHELLFRAME_AL_SELECTED]=$(( (SHELLFRAME_AL_IDX[$SHELLFRAME_AL_SELECTED] + 1) % ${#_cur_acts[@]} ))
-            _dirty=1
-        elif [[ "$_key" == "$SHELLFRAME_KEY_ENTER" || "$_key" == 'c' || "$_key" == 'C' ]]; then
-            _al_retval=0
-            break
-        elif [[ "$_key" == 'q' || "$_key" == 'Q' ]]; then
-            _al_retval=1
-            break
         elif [[ -n "$_extra_key_fn" ]]; then
             "$_extra_key_fn" "$_key"
             local _xrc=$?
             if   (( _xrc == 2 )); then
                 _al_retval=1; break
             elif (( _xrc == 1 )); then
-                continue   # not handled — skip redraw
+                continue
             fi
-            _dirty=2   # _xrc == 0: handled — conservative full redraw (caller may have
-                       # re-entered via shellframe_screen_enter after a sub-TUI)
+            _dirty=2
         else
-            continue  # unrecognized key — skip redraw
+            continue
         fi
-
         _al_draw
     done
 
