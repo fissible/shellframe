@@ -448,7 +448,7 @@ shellframe_menubar_on_key() {
                     printf -v "$_state_var" '%s' "dropdown"
                     return 0
                     ;;
-                "$SHELLFRAME_KEY_ESC")
+                "$SHELLFRAME_KEY_UP"|"$SHELLFRAME_KEY_ESC")
                     SHELLFRAME_MENUBAR_RESULT=""
                     printf -v "$_state_var" '%s' "idle"
                     SHELLFRAME_MENUBAR_FOCUSED=0
@@ -470,6 +470,15 @@ shellframe_menubar_on_key() {
                     return 0
                     ;;
                 "$SHELLFRAME_KEY_UP")
+                    local _cursor
+                    shellframe_sel_cursor "mb_${_ctx}_dd" _cursor
+                    local _first=0
+                    _shellframe_mb_first_selectable "$_mvar" _first || true
+                    if (( _cursor <= _first )); then
+                        # Already at first selectable — close dropdown to bar
+                        printf -v "$_state_var" '%s' "bar"
+                        return 0
+                    fi
                     shellframe_sel_move "mb_${_ctx}_dd" up
                     _shellframe_mb_skip_seps "$_ctx" "mb_${_ctx}_dd" "$_mvar" up
                     return 0

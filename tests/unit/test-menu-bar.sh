@@ -326,4 +326,28 @@ _st_var="_SHELLFRAME_MB_mb_STATE"
 assert_eq "1" "$_rc" "unknown name returns 1"
 assert_eq "idle" "${!_st_var}" "state unchanged (idle)"
 
+ptyunit_test_begin "on_key BAR: Up → idle, RESULT empty, returns 2"
+_reset_mb
+shellframe_menubar_on_focus 1
+shellframe_menubar_on_key "$SHELLFRAME_KEY_UP"; _rc=$?
+_st_var="_SHELLFRAME_MB_mb_STATE"
+assert_eq "2" "$_rc" "Up returns 2"
+assert_eq "idle" "${!_st_var}" "state=idle"
+assert_eq "" "$SHELLFRAME_MENUBAR_RESULT" "RESULT empty"
+
+ptyunit_test_begin "on_key DROPDOWN: Up at first selectable → bar state"
+_open_file_dd
+# cursor is at 0 (Open = first selectable); Up should close dropdown
+shellframe_menubar_on_key "$SHELLFRAME_KEY_UP"
+_st_var="_SHELLFRAME_MB_mb_STATE"
+assert_eq "bar" "${!_st_var}" "state=bar after Up at top"
+
+ptyunit_test_begin "on_key DROPDOWN: Up from second item moves up, does not close"
+_open_file_dd
+shellframe_menubar_on_key "$SHELLFRAME_KEY_DOWN"   # cursor → Save(1)
+shellframe_menubar_on_key "$SHELLFRAME_KEY_UP"     # cursor → Open(0)
+_st_var="_SHELLFRAME_MB_mb_STATE"
+assert_eq "dropdown" "${!_st_var}" "still dropdown"
+assert_output "0" shellframe_sel_cursor "mb_mb_dd"
+
 ptyunit_test_summary
