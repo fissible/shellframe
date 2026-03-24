@@ -103,6 +103,7 @@ SHELLFRAME_GRID_COL_ALIGN=()
 SHELLFRAME_GRID_DATA=()
 SHELLFRAME_GRID_ROWS=0
 SHELLFRAME_GRID_COLS=0
+SHELLFRAME_GRID_BG=""
 SHELLFRAME_GRID_STRIPE_BG=""
 SHELLFRAME_GRID_CURSOR_STYLE=""
 
@@ -240,9 +241,11 @@ shellframe_grid_render() {
     # Update scroll viewport dimensions so clamping is correct on the next keypress.
     shellframe_scroll_resize "$_ctx" "$_data_height" "$_trailing_vis_cols"
 
+    local _grid_bg="${SHELLFRAME_GRID_BG:-}"
+
     # ── Header label row ──────────────────────────────────────────────────────
     if (( _has_header )); then
-        printf '\033[%d;%dH%*s\033[%d;%dH' "$_top" "$_left" "$_width" '' "$_top" "$_left" >&3
+        printf '\033[%d;%dH%s%*s\033[%d;%dH' "$_top" "$_left" "$_grid_bg" "$_width" '' "$_top" "$_left" >&3
 
         local _vi
         for (( _vi=0; _vi<_n_vis_cols; _vi++ )); do
@@ -275,7 +278,7 @@ shellframe_grid_render() {
         fi
 
         # ── Header separator row: ─── with ┼/╋ at column separator positions ──
-        printf '\033[%d;%dH%s' "$(( _top + 1 ))" "$_left" "$_gray" >&3
+        printf '\033[%d;%dH%s%s' "$(( _top + 1 ))" "$_left" "$_grid_bg" "$_gray" >&3
         local _prev_x=0 _bvi
         for (( _bvi=0; _bvi<_n_vis_seps; _bvi++ )); do
             local _sep_x="${_vis_sep_x[$_bvi]}"
@@ -306,7 +309,7 @@ shellframe_grid_render() {
         local _row=$(( _data_top + _r ))
         local _ridx=$(( _vscroll_top + _r ))
 
-        printf '\033[%d;%dH%*s\033[%d;%dH' "$_row" "$_left" "$_width" '' "$_row" "$_left" >&3
+        printf '\033[%d;%dH%s%*s\033[%d;%dH' "$_row" "$_left" "$_grid_bg" "$_width" '' "$_row" "$_left" >&3
         [[ "$_ridx" -ge "$_nrows" ]] && continue
 
         # Apply stripe background to even data rows
