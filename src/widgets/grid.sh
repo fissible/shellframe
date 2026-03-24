@@ -103,6 +103,8 @@ SHELLFRAME_GRID_COL_ALIGN=()
 SHELLFRAME_GRID_DATA=()
 SHELLFRAME_GRID_ROWS=0
 SHELLFRAME_GRID_COLS=0
+SHELLFRAME_GRID_STRIPE_BG=""
+SHELLFRAME_GRID_CURSOR_STYLE=""
 
 # ── shellframe_grid_init ───────────────────────────────────────────────────────
 
@@ -240,7 +242,7 @@ shellframe_grid_render() {
 
     # ── Header label row ──────────────────────────────────────────────────────
     if (( _has_header )); then
-        printf '\033[%d;%dH\033[2K' "$_top" "$_left" >&3
+        printf '\033[%d;%dH%*s\033[%d;%dH' "$_top" "$_left" "$_width" '' "$_top" "$_left" >&3
 
         local _vi
         for (( _vi=0; _vi<_n_vis_cols; _vi++ )); do
@@ -304,8 +306,14 @@ shellframe_grid_render() {
         local _row=$(( _data_top + _r ))
         local _ridx=$(( _vscroll_top + _r ))
 
-        printf '\033[%d;%dH\033[2K' "$_row" "$_left" >&3
+        printf '\033[%d;%dH%*s\033[%d;%dH' "$_row" "$_left" "$_width" '' "$_row" "$_left" >&3
         [[ "$_ridx" -ge "$_nrows" ]] && continue
+
+        # Apply stripe background to even data rows
+        if [[ -n "${SHELLFRAME_GRID_STRIPE_BG:-}" ]] && (( _ridx % 2 == 1 )); then
+            printf '\033[%d;%dH%s%*s' "$_row" "$_left" "$SHELLFRAME_GRID_STRIPE_BG" "$_width" '' >&3
+            printf '\033[%d;%dH' "$_row" "$_left" >&3
+        fi
 
         local _is_cursor=0
         (( _ridx == _cursor && ${SHELLFRAME_GRID_FOCUSED:-0} )) && _is_cursor=1
@@ -323,7 +331,10 @@ shellframe_grid_render() {
         # Activate reverse video for the entire cursor row before writing any cell.
         # The attribute persists through absolute cursor moves, so all subsequent
         # cells and separators will be rendered in reverse video.
-        (( _is_cursor )) && printf '\033[%d;%dH%s' "$_row" "$_left" "$_rev" >&3
+        if (( _is_cursor )); then
+            local _cursor_attr="${SHELLFRAME_GRID_CURSOR_STYLE:-$_rev}"
+            printf '\033[%d;%dH%s' "$_row" "$_left" "$_cursor_attr" >&3
+        fi
 
         local _vi
         for (( _vi=0; _vi<_n_vis_cols; _vi++ )); do
