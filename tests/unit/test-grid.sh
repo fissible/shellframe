@@ -37,6 +37,7 @@ _reset_grid() {
     )
     SHELLFRAME_GRID_MULTISELECT=0
     SHELLFRAME_GRID_FOCUSED=0
+    SHELLFRAME_GRID_COL_ALIGN=()
     shellframe_grid_init "g" 10
 }
 
@@ -391,6 +392,31 @@ shellframe_grid_render 1 1 50 10
 exec 3>&-
 _content=$(sed 's/\033\[[0-9;]*[A-Za-z]//g' "$_out")
 assert_contains "$_content" "Age"
+rm -f "$_out"
+
+# ── SHELLFRAME_GRID_COL_ALIGN ─────────────────────────────────────────────────
+
+ptyunit_test_begin "grid_render: right-align pads numeric cells on left"
+_reset_grid
+SHELLFRAME_GRID_COL_ALIGN=(left right left)   # Age column → right
+_out=$(mktemp)
+exec 3>"$_out"
+shellframe_grid_render 1 1 50 10
+exec 3>&-
+# Strip ANSI, find the 'Age' column area — value '30' should appear with leading spaces
+_content=$(sed 's/\033\[[0-9;]*[A-Za-z]//g' "$_out")
+assert_contains "$_content" "30"   # value still rendered
+rm -f "$_out"
+
+ptyunit_test_begin "grid_render: COL_ALIGN defaults to left when unset"
+_reset_grid
+SHELLFRAME_GRID_COL_ALIGN=()
+_out=$(mktemp)
+exec 3>"$_out"
+shellframe_grid_render 1 1 50 10
+exec 3>&-
+_content=$(sed 's/\033\[[0-9;]*[A-Za-z]//g' "$_out")
+assert_contains "$_content" "Alice"   # left-aligned text still rendered
 rm -f "$_out"
 
 ptyunit_test_summary

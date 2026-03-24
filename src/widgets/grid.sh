@@ -35,6 +35,8 @@
 #                                    When > 0, the separator after column
 #                                    PK_COLS-1 is drawn as ┃ (thick) and the
 #                                    header junction as ╋ instead of ┼.
+#   SHELLFRAME_GRID_COL_ALIGN[@]   — per-column alignment: "left" | "right" | "center"
+#                                    Defaults to "left" when empty or unset for a column.
 #   SHELLFRAME_GRID_CTX            — context name (default: "grid")
 #   SHELLFRAME_GRID_MULTISELECT    — 0 (default) | 1  (Space toggles selection)
 #   SHELLFRAME_GRID_FOCUSED        — 0 (default) | 1
@@ -97,6 +99,7 @@ SHELLFRAME_GRID_FOCUSABLE=1
 SHELLFRAME_GRID_PK_COLS=0
 SHELLFRAME_GRID_HEADERS=()
 SHELLFRAME_GRID_COL_WIDTHS=()
+SHELLFRAME_GRID_COL_ALIGN=()
 SHELLFRAME_GRID_DATA=()
 SHELLFRAME_GRID_ROWS=0
 SHELLFRAME_GRID_COLS=0
@@ -341,11 +344,34 @@ shellframe_grid_render() {
             local _text="$_cell"
             (( _vi == 0 && _multi )) && _text="${_prefix}${_cell}"
 
-            local _clipped
-            _clipped=$(shellframe_str_clip_ellipsis "$_text" "$_text" "$_avail")
-            local _padded
-            _padded=$(shellframe_str_pad "$_text" "$_clipped" "$_avail")
-            printf '\033[%d;%dH%s' "$_row" "$(( _left + _pad_xoff ))" "$_padded" >&3
+            local _tlen="${#_text}"
+            local _align="${SHELLFRAME_GRID_COL_ALIGN[$_ci]:-left}"
+            printf '\033[%d;%dH' "$_row" "$(( _left + _pad_xoff ))" >&3
+            if (( _tlen > _avail )); then
+                # Text wider than column — clip with ellipsis (subshell only here)
+                local _clipped
+                _clipped=$(shellframe_str_clip_ellipsis "$_text" "$_text" "$_avail")
+                printf '%s' "$_clipped" >&3
+            else
+                local _pad=$(( _avail - _tlen ))
+                case "$_align" in
+                    right)
+                        (( _pad > 0 )) && printf '%*s' "$_pad" '' >&3
+                        printf '%s' "$_text" >&3
+                        ;;
+                    center)
+                        local _lpad=$(( _pad / 2 ))
+                        (( _lpad > 0 )) && printf '%*s' "$_lpad" '' >&3
+                        printf '%s' "$_text" >&3
+                        local _rpad=$(( _pad - _lpad ))
+                        (( _rpad > 0 )) && printf '%*s' "$_rpad" '' >&3
+                        ;;
+                    *)  # left (default)
+                        printf '%s' "$_text" >&3
+                        (( _pad > 0 )) && printf '%*s' "$_pad" '' >&3
+                        ;;
+                esac
+            fi
 
             # Separator after this column.
             # Cursor row: separator inherits the active reverse-video attribute.
