@@ -104,7 +104,7 @@ Start every new session by reading this file. Update task status here when work 
 
 | # | Task | Effort | GH Issue | Status | Deps |
 |---|------|--------|----------|--------|------|
-| 22 | Menu bar: horizontal bar + dropdown panel + submenu nesting; v2 contract (`init/render/on_key/on_focus/size`); bash 3.2-compatible label→variable naming; unit + integration tests + showcase entry | L | [#22](https://github.com/fissible/shellframe/issues/22) | open | 4, 5, 7, 9 |
+| 22 | Menu bar: horizontal bar + dropdown panel + submenu nesting; v2 contract (`init/render/on_key/on_focus/size`); bash 3.2-compatible label→variable naming; unit + integration tests + showcase entry | L | [#22](https://github.com/fissible/shellframe/issues/22) | closed | 4, 5, 7, 9 |
 
 ---
 
@@ -248,4 +248,5 @@ _Last updated: 2026-03-16 (session 5)_
 - **confirm + diff-view coverage increase (2026-03-23)**: Added 14 new unit assertions (907 → 921). `test-confirm.sh`: 4 new assertions for uppercase aliases `H` (Yes), `L` (No), `C` (confirm) — branches in `_shellframe_confirm_on_key` that were present but untested. `test-diff-view.sh`: 10 new assertions covering HL_ENABLED ctx path (left + right), hdr row status variants (`deleted`/`added` label on left/right pane — 4 cases), `render_side` right pane with footer, `shellframe_diff_view_render` with RIGHT_FOOTER and LEFT_DATE. 921/921 assertions pass.
 - **ptyunit upgraded to v1.1.0 (2026-03-23)**: ptyunit cut a new release (v1.1.0) containing `fix(coverage): skip function declaration lines; add version + file links to HTML report`. Updated Homebrew formula (`/opt/homebrew/Library/Taps/fissible/homebrew-tap/Formula/ptyunit.rb`) to new tarball URL + sha256. `brew upgrade fissible/tap/ptyunit` applied cleanly. 949/949 assertions pass.
 - **ptyunit v1.1.1 + coverage report (2026-03-23)**: Discovered Python 3.14 argparse incompatibility in `coverage_report.py` — `%` in `--min` help string raised `ValueError: badly formed help string`. Fixed by escaping as `%%`. Cut ptyunit v1.1.1, updated homebrew-tap formula, pushed. Coverage run produced `coverage/2026_03_23_00_08_12.html` (linked as default in `index.html`). Result: **70% total coverage** (2770/3957 lines), up from 64%. Highlights: diff-view 81%, editor 82%, grid 94%, modal 91%. Low floors (confirm 11%, action-list 18%, table 17%) are keyboard event loops requiring PTY — cannot be unit-traced.
-- **Next task**: shellql Phase 6 — SQLite integration (shellql#6–8): mock adapter cleanup, `src/db.sh` real adapter, CLI argument parsing (`bin/shql`).
+- **Phase 3.5 #22 Menu bar complete (2026-03-23)**: `src/widgets/menu-bar.sh` — v2 composable widget. Horizontal bar + double-border dropdown + one-level submenu. Data model: SHELLFRAME_MENU_NAMES + SHELLFRAME_MENU_<NAME> arrays + @VARNAME:Label sigil for submenus. State machine: idle/bar/dropdown/submenu. shellframe_menubar_open for hotkey plug-in seam. SHELLFRAME_MENUBAR_RESULT on rc=2 (empty=dismiss, non-empty=selection path). Unit + integration tests + example + showcase entry. All tests pass (1068/1068).
+- **Next**: PM decision — Phase 7 platform enhancements or other prioritised work.
