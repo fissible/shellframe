@@ -107,6 +107,7 @@ SHELLFRAME_GRID_BG=""
 SHELLFRAME_GRID_STRIPE_BG=""
 SHELLFRAME_GRID_CURSOR_STYLE=""
 SHELLFRAME_GRID_HEADER_STYLE=""
+SHELLFRAME_GRID_HEADER_BG=""
 
 # ── shellframe_grid_init ───────────────────────────────────────────────────────
 
@@ -248,7 +249,9 @@ shellframe_grid_render() {
 
     # ── Header label row ──────────────────────────────────────────────────────
     if (( _has_header )); then
-        printf '\033[%d;%dH%s%*s\033[%d;%dH' "$_top" "$_left" "$_grid_bg" "$_width" '' "$_top" "$_left" >&3
+        local _hdr_bg="${SHELLFRAME_GRID_HEADER_BG:-$_grid_bg}"
+        local _hdr_bg_rst="${_rst}${_hdr_bg}"
+        printf '\033[%d;%dH%s%*s\033[%d;%dH' "$_top" "$_left" "$_hdr_bg" "$_width" '' "$_top" "$_left" >&3
 
         local _vi
         for (( _vi=0; _vi<_n_vis_cols; _vi++ )); do
@@ -264,24 +267,24 @@ shellframe_grid_render() {
             local _hdr_style="${SHELLFRAME_GRID_HEADER_STYLE:-${_bold}${_white}}"
             local _clipped
             _clipped=$(shellframe_str_clip_ellipsis "$_hdr" "$_hdr" "$_avail")
-            printf '\033[%d;%dH%s%s%s' "$_top" "$(( _left + _pad_xoff ))" "$_hdr_style" "$_clipped" "$_bg_rst" >&3
+            printf '\033[%d;%dH%s%s%s' "$_top" "$(( _left + _pad_xoff ))" "$_hdr_style" "$_clipped" "$_hdr_bg_rst" >&3
 
             # Separator after this header
             if (( _vi < _n_vis_seps )); then
                 printf '\033[%d;%dH%s%s%s' \
                     "$_top" "$(( _left + ${_vis_sep_x[$_vi]} ))" \
-                    "$_gray" "${_vis_sep_char[$_vi]}" "$_bg_rst" >&3
+                    "$_gray" "${_vis_sep_char[$_vi]}" "$_hdr_bg_rst" >&3
             fi
         done
 
         # Right end-of-data border in header label row
         if (( _right_border_x >= 0 )); then
             printf '\033[%d;%dH%s│%s' \
-                "$_top" "$(( _left + _right_border_x ))" "$_gray" "$_bg_rst" >&3
+                "$_top" "$(( _left + _right_border_x ))" "$_gray" "$_hdr_bg_rst" >&3
         fi
 
         # ── Header separator row: ─── with ┼/╋ at column separator positions ──
-        printf '\033[%d;%dH%s%s' "$(( _top + 1 ))" "$_left" "$_grid_bg" "$_gray" >&3
+        printf '\033[%d;%dH%s%s' "$(( _top + 1 ))" "$_left" "$_hdr_bg" "$_gray" >&3
         local _prev_x=0 _bvi
         for (( _bvi=0; _bvi<_n_vis_seps; _bvi++ )); do
             local _sep_x="${_vis_sep_x[$_bvi]}"
