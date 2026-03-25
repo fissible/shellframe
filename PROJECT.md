@@ -116,10 +116,10 @@ Start every new session by reading this file. Update task status here when work 
 
 | # | Task | Effort | GH Issue | Status | Deps |
 |---|------|--------|----------|--------|------|
-| A | Input hardening: generic CSI drain path (prevents buffer leakage from unknown sequences), F1–F12 constants + recognition, modifier+arrow sequences (`\x1b[1;2A` etc.) — all changes in `src/input.sh` + `src/keymap.sh` | S | [#29](https://github.com/fissible/shellframe/issues/29) | open | 4 |
+| A | Input hardening: generic CSI drain path (prevents buffer leakage from unknown sequences), F1–F12 constants + recognition, modifier+arrow sequences (`\x1b[1;2A` etc.) — all changes in `src/input.sh` + `src/keymap.sh` | S | [#29](https://github.com/fissible/shellframe/issues/29) | closed | 4 |
 | B | Dirty-region rendering: widget dirty flags + conditional re-render in app loop; `shellframe_screen_clear` only called when full repaint is needed; render fns still write to `/dev/tty` — no API break | M | [#30](https://github.com/fissible/shellframe/issues/30) | closed | 18 |
 | C | Mouse: `shellframe_mouse_enter/exit` in `screen.sh`; SGR mouse sequence parsing in `shellframe_read_key`; `SHELLFRAME_MOUSE_COL/ROW/BUTTON/ACTION` output vars | S | [#32](https://github.com/fissible/shellframe/issues/32) | open | A |
-| D | Widget hit-test registry: `shellframe_widget_register name top left width height` + `shellframe_widget_at row col`; new module `src/hitbox.sh` | M | [#31](https://github.com/fissible/shellframe/issues/31) | open | 9, 18 |
+| D | Widget hit-test registry: `shellframe_widget_register name top left width height` + `shellframe_widget_at row col`; new module `src/hitbox.sh` | M | [#31](https://github.com/fissible/shellframe/issues/31) | closed | 9, 18 |
 | E | Mouse routing in app shell + `on_mouse` handler per widget (click-to-focus, click-to-select in lists, scroll-wheel in scroll views) | M | [#34](https://github.com/fissible/shellframe/issues/34) | open | C, D |
 | F | Framebuffer diff rendering: `_SF_FRAME_CURR/PREV[row*COLS+col]` flat indexed arrays; all render fns write to framebuffer instead of `/dev/tty`; `shellframe_screen_flush` diffs and emits only changed cells. See migration note in `src/screen.sh`. | XL | [#33](https://github.com/fissible/shellframe/issues/33) | open | B |
 
@@ -278,8 +278,7 @@ _Last updated: 2026-03-16 (session 5)_
   - Dirty integration tests added to all 7 widget test files + test-shell.sh. 1075/1075 assertions pass.
   - Docker matrix blocked by Docker Desktop file-sharing config (`/opt/homebrew/opt/ptyunit/libexec` not shared) — pre-existing infra issue, not a code regression.
   - Merged `feature/phase-7b-dirty-region` → `main`.
-- **Phase 7 parallel work in progress**: Background worktree agents dispatched for:
-  - **Task A (#29, input hardening)** on branch `feature/phase-7a-input-hardening`: CSI drain, F1–F12 constants, modifier+arrow sequences.
-  - **Task D (#31, hitbox registry)** on branch `feature/phase-7d-hitbox`: new `src/hitbox.sh` with `shellframe_widget_register`, `shellframe_widget_at`, `shellframe_widget_clear`.
-  - Await agent completions; review/merge; then Task C (#32, mouse, deps A) and Task F (#33, framebuffer diff, deps B=done); finally Task E (#34, mouse routing, deps C+D).
-- **Next**: Review completed parallel agent work (A and D) when background agents return.
+- **Phase 7A input hardening complete (2026-03-25)**: [shellframe#29](https://github.com/fissible/shellframe/issues/29) closed. F1–F12 constants (SS3 + CSI variants), 12 modifier+arrow constants (Shift/Alt/Ctrl × Up/Down/Left/Right), `shellframe_keyname` entries for all new sequences, CSI drain path documented. 61 new assertions. Cherry-picked from worktree agent onto main.
+- **Phase 7D hitbox registry complete (2026-03-25)**: [shellframe#31](https://github.com/fissible/shellframe/issues/31) closed. New `src/hitbox.sh`: parallel-array bounding-box registry, last-registered-wins overlap, out_var form for `shellframe_widget_at`, selective `shellframe_widget_clear`. 15 unit assertions. 1151/1151 total assertions pass.
+- **Phase 7 status**: A ✓, B ✓, D ✓ — C (#32, mouse) now unblocked (deps A done); F (#33, framebuffer diff) now unblocked (deps B done); E (#34, mouse routing) waits for C+D (both done when C ships).
+- **Next**: Task C (#32, mouse: `shellframe_mouse_enter/exit` + SGR parsing + `SHELLFRAME_MOUSE_COL/ROW/BUTTON/ACTION`) — then F (#33) in parallel after C is started.
