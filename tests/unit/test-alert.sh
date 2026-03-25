@@ -8,6 +8,11 @@ SHELLFRAME_DIR="$(cd "$TESTS_DIR/.."; pwd)"
 source "$SHELLFRAME_DIR/shellframe.sh"
 source "$PTYUNIT_HOME/assert.sh"
 
+# ── fd 3 / coverage-trace setup ──────────────────────────────────────────────
+exec 4>&3 2>/dev/null || true
+exec 3>/dev/null
+BASH_XTRACEFD=4
+
 # Render alert to a temp file, strip ANSI, return plain text
 _render_alert() {
     local _title="$1" _n_details="$2"

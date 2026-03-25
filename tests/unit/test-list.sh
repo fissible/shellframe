@@ -13,6 +13,11 @@ source "$SHELLFRAME_DIR/src/scroll.sh"
 source "$SHELLFRAME_DIR/src/widgets/list.sh"
 source "$PTYUNIT_HOME/assert.sh"
 
+# ── fd 3 / coverage-trace setup ──────────────────────────────────────────────
+exec 4>&3 2>/dev/null || true
+exec 3>/dev/null
+BASH_XTRACEFD=4
+
 # ── Setup helpers ─────────────────────────────────────────────────────────────
 
 SHELLFRAME_LIST_ITEMS=("Alpha" "Beta" "Gamma" "Delta")
@@ -164,5 +169,54 @@ assert_eq "0" "$SHELLFRAME_LIST_FOCUSED" "focused set to 0"
 
 ptyunit_test_begin "list_size: returns 1 1 0 0"
 assert_output "1 1 0 0" shellframe_list_size
+
+# ── shellframe_list_render ─────────────────────────────────────────────────────
+
+# Render list to a temp file, strip ANSI, return plain text
+_render_list() {
+    local _top="${1:-1}" _left="${2:-1}" _width="${3:-20}" _height="${4:-5}"
+    local _out
+    _out=$(mktemp "${TMPDIR:-/tmp}/sf-test-list.XXXXXX")
+    trap '{ exec 3>&- 2>/dev/null || true; rm -f "$_out"; }' RETURN
+    exec 3>"$_out"
+    shellframe_list_render "$_top" "$_left" "$_width" "$_height"
+    exec 3>&-
+    sed 's/\033\[[0-9;]*m//g; s/\033\[[0-9;]*[A-Za-z]//g' "$_out"
+}
+
+ptyunit_test_begin "list_render: items appear in output"
+SHELLFRAME_LIST_ITEMS=("Alpha" "Beta" "Gamma" "Delta")
+SHELLFRAME_LIST_CTX="lst"
+_reset_list
+_out=$(_render_list 1 1 20 4)
+assert_contains "$_out" "Alpha" "first item present"
+assert_contains "$_out" "Beta" "second item present"
+
+ptyunit_test_begin "list_render: items beyond height not shown"
+SHELLFRAME_LIST_ITEMS=("Alpha" "Beta" "Gamma" "Delta")
+SHELLFRAME_LIST_CTX="lst"
+_reset_list
+_out=$(_render_list 1 1 20 2)
+assert_contains "$_out" "Alpha" "item 0 visible"
+assert_not_contains "$_out" "Gamma" "item 2 beyond height"
+
+ptyunit_test_begin "list_render: multiselect shows checked prefix"
+SHELLFRAME_LIST_ITEMS=("Alpha" "Beta" "Gamma" "Delta")
+SHELLFRAME_LIST_CTX="lst"
+_reset_list
+SHELLFRAME_LIST_MULTISELECT=1
+shellframe_list_on_key " "   # toggle item 0 selected
+_out=$(_render_list 1 1 20 4)
+assert_contains "$_out" "[x]" "selected item has [x]"
+assert_contains "$_out" "[ ]" "unselected item has [ ]"
+
+ptyunit_test_begin "list_render: no checkboxes in single-select mode"
+SHELLFRAME_LIST_ITEMS=("Alpha" "Beta" "Gamma" "Delta")
+SHELLFRAME_LIST_CTX="lst"
+_reset_list
+SHELLFRAME_LIST_MULTISELECT=0
+_out=$(_render_list 1 1 20 4)
+assert_not_contains "$_out" "[x]" "no [x] in single-select"
+assert_not_contains "$_out" "[ ]" "no [ ] in single-select"
 
 ptyunit_test_summary

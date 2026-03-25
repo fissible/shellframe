@@ -12,6 +12,11 @@ source "$SHELLFRAME_DIR/src/cursor.sh"
 source "$SHELLFRAME_DIR/src/widgets/input-field.sh"
 source "$PTYUNIT_HOME/assert.sh"
 
+# ── fd 3 / coverage-trace setup ──────────────────────────────────────────────
+exec 4>&3 2>/dev/null || true
+exec 3>/dev/null
+BASH_XTRACEFD=4
+
 # Helper: reset field to empty state
 _reset_field() {
     SHELLFRAME_FIELD_CTX="f"
@@ -167,5 +172,75 @@ assert_eq "0" "$SHELLFRAME_FIELD_FOCUSED" "focused set to 0"
 
 ptyunit_test_begin "field_size: returns 1 1 0 1"
 assert_output "1 1 0 1" shellframe_field_size
+
+# ── shellframe_field_render ───────────────────────────────────────────────────
+
+# Render field to a temp file, strip ANSI, return plain text
+_render_field() {
+    local _top="${1:-1}" _left="${2:-1}" _width="${3:-20}"
+    local _out
+    _out=$(mktemp "${TMPDIR:-/tmp}/sf-test-field.XXXXXX")
+    trap '{ exec 3>&- 2>/dev/null || true; rm -f "$_out"; }' RETURN
+    exec 3>"$_out"
+    shellframe_field_render "$_top" "$_left" "$_width"
+    exec 3>&-
+    sed 's/\033\[[0-9;]*m//g; s/\033\[[0-9;]*[A-Za-z]//g' "$_out"
+}
+
+ptyunit_test_begin "field_render: placeholder shown when empty and unfocused"
+_reset_field
+SHELLFRAME_FIELD_FOCUSED=0
+SHELLFRAME_FIELD_PLACEHOLDER="Enter name"
+_out=$(_render_field 1 1 20)
+assert_contains "$_out" "Enter name" "placeholder present"
+
+ptyunit_test_begin "field_render: text appears when field has content"
+_reset_field
+shellframe_cur_set "f" "hello"
+SHELLFRAME_FIELD_FOCUSED=0
+SHELLFRAME_FIELD_PLACEHOLDER=""
+_out=$(_render_field 1 1 20)
+assert_contains "$_out" "hello" "text present"
+
+ptyunit_test_begin "field_render: mask mode shows bullets instead of text"
+_reset_field
+shellframe_cur_set "f" "abc"
+SHELLFRAME_FIELD_FOCUSED=0
+SHELLFRAME_FIELD_MASK=1
+SHELLFRAME_FIELD_PLACEHOLDER=""
+_out=$(_render_field 1 1 20)
+assert_contains "$_out" "●●●" "masked text shows bullets"
+assert_not_contains "$_out" "abc" "original text hidden"
+SHELLFRAME_FIELD_MASK=0
+
+# ── _shellframe_field_is_printable ────────────────────────────────────────────
+
+ptyunit_test_begin "is_printable: letter returns 0"
+_shellframe_field_is_printable "a"
+assert_eq "0" "$?" "a is printable"
+
+ptyunit_test_begin "is_printable: space returns 0"
+_shellframe_field_is_printable " "
+assert_eq "0" "$?" "space is printable"
+
+ptyunit_test_begin "is_printable: digit returns 0"
+_shellframe_field_is_printable "5"
+assert_eq "0" "$?" "digit is printable"
+
+ptyunit_test_begin "is_printable: symbol returns 0"
+_shellframe_field_is_printable "!"
+assert_eq "0" "$?" "symbol is printable"
+
+ptyunit_test_begin "is_printable: multi-char string returns 1"
+_shellframe_field_is_printable "ab"
+assert_eq "1" "$?" "multi-char not printable"
+
+ptyunit_test_begin "is_printable: escape sequence returns 1"
+_shellframe_field_is_printable $'\033[A'
+assert_eq "1" "$?" "escape sequence not printable"
+
+ptyunit_test_begin "is_printable: empty string returns 1"
+_shellframe_field_is_printable ""
+assert_eq "1" "$?" "empty string not printable"
 
 ptyunit_test_summary
