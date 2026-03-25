@@ -268,4 +268,8 @@ _Last updated: 2026-03-16 (session 5)_
   - **Result**: **70% total coverage** (3058/4356 lines), **1033/1033 assertions pass**. HTML report: `coverage/2026_03_25_07_21_10.html`.
   - Highlights after fix: menu-bar.sh 51% (from ~1%), grid 89%, modal 92%, tab-bar 92%, panel 84%.
   - Remaining low floors: action-list 24%, confirm 22%, table 20% — keyboard event loops requiring PTY input; not unit-traceable.
-- **Next**: PM decision — Phase 7 platform enhancements or other prioritised work. `main` should be pushed to origin (17+ commits behind as of 2026-03-23).
+- **Coverage pass #2 — render tests (2026-03-25)**:
+  - Added fd dup setup + render tests to `test-alert.sh` (was missing fd dup; render tests existed), `test-list.sh` (new `shellframe_list_render` tests), `test-input-field.sh` (new `shellframe_field_render` + `_shellframe_field_is_printable` tests).
+  - **Result**: **84% total coverage** (3658/4356 lines), **1052/1052 assertions pass**.
+  - Highlights: alert.sh 55%→89%, list.sh →98%, input-field.sh 54%→85%, screen.sh →100%.
+- **Next**: PM decision — push `main` to origin (20+ commits behind as of 2026-03-23). Phase 7 platform enhancements or other prioritised work.
