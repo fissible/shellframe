@@ -444,42 +444,43 @@ shellframe_grid_on_key() {
     local _k_enter="${SHELLFRAME_KEY_ENTER:-$'\n'}"
 
     if [[ "$_key" == "$_k_enter" ]] || [[ "$_key" == $'\r' ]]; then
+        shellframe_shell_mark_dirty
         return 2    # row confirmed
     elif [[ "$_key" == "$_k_down" ]]; then
         shellframe_sel_move "$_ctx" down
         shellframe_scroll_ensure_row "$_ctx" "$(shellframe_sel_cursor "$_ctx")"
-        return 0
+        shellframe_shell_mark_dirty; return 0
     elif [[ "$_key" == "$_k_up" ]]; then
         shellframe_sel_move "$_ctx" up
         shellframe_scroll_ensure_row "$_ctx" "$(shellframe_sel_cursor "$_ctx")"
-        return 0
+        shellframe_shell_mark_dirty; return 0
     elif [[ "$_key" == "$_k_right" ]]; then
         shellframe_scroll_move "$_ctx" right
-        return 0
+        shellframe_shell_mark_dirty; return 0
     elif [[ "$_key" == "$_k_left" ]]; then
         shellframe_scroll_move "$_ctx" left
-        return 0
+        shellframe_shell_mark_dirty; return 0
     elif [[ "$_key" == "$_k_pgdn" ]]; then
         shellframe_sel_move "$_ctx" page_down "$_vrows"
         shellframe_scroll_move "$_ctx" page_down
         shellframe_scroll_ensure_row "$_ctx" "$(shellframe_sel_cursor "$_ctx")"
-        return 0
+        shellframe_shell_mark_dirty; return 0
     elif [[ "$_key" == "$_k_pgup" ]]; then
         shellframe_sel_move "$_ctx" page_up "$_vrows"
         shellframe_scroll_move "$_ctx" page_up
         shellframe_scroll_ensure_row "$_ctx" "$(shellframe_sel_cursor "$_ctx")"
-        return 0
+        shellframe_shell_mark_dirty; return 0
     elif [[ "$_key" == "$_k_home" ]]; then
         shellframe_sel_move "$_ctx" home
         shellframe_scroll_move "$_ctx" home
-        return 0
+        shellframe_shell_mark_dirty; return 0
     elif [[ "$_key" == "$_k_end" ]]; then
         shellframe_sel_move "$_ctx" end
         shellframe_scroll_move "$_ctx" end
-        return 0
+        shellframe_shell_mark_dirty; return 0
     elif [[ "$_key" == " " ]] && (( ${SHELLFRAME_GRID_MULTISELECT:-0} )); then
         shellframe_sel_toggle "$_ctx"
-        return 0
+        shellframe_shell_mark_dirty; return 0
     fi
 
     return 1

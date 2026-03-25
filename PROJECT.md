@@ -116,12 +116,12 @@ Start every new session by reading this file. Update task status here when work 
 
 | # | Task | Effort | GH Issue | Status | Deps |
 |---|------|--------|----------|--------|------|
-| A | Input hardening: generic CSI drain path (prevents buffer leakage from unknown sequences), F1–F12 constants + recognition, modifier+arrow sequences (`\x1b[1;2A` etc.) — all changes in `src/input.sh` + `src/keymap.sh` | S | [#TBD](https://github.com/fissible/shellframe/issues) | open | 4 |
-| B | Dirty-region rendering: widget dirty flags + conditional re-render in app loop; `shellframe_screen_clear` only called when full repaint is needed; render fns still write to `/dev/tty` — no API break | M | [#TBD](https://github.com/fissible/shellframe/issues) | open | 18 |
-| C | Mouse: `shellframe_mouse_enter/exit` in `screen.sh`; SGR mouse sequence parsing in `shellframe_read_key`; `SHELLFRAME_MOUSE_COL/ROW/BUTTON/ACTION` output vars | S | [#TBD](https://github.com/fissible/shellframe/issues) | open | A |
-| D | Widget hit-test registry: `shellframe_widget_register name top left width height` + `shellframe_widget_at row col`; new module `src/hitbox.sh` | M | [#TBD](https://github.com/fissible/shellframe/issues) | open | 9, 18 |
-| E | Mouse routing in app shell + `on_mouse` handler per widget (click-to-focus, click-to-select in lists, scroll-wheel in scroll views) | M | [#TBD](https://github.com/fissible/shellframe/issues) | open | C, D |
-| F | Framebuffer diff rendering: `_SF_FRAME_CURR/PREV[row*COLS+col]` flat indexed arrays; all render fns write to framebuffer instead of `/dev/tty`; `shellframe_screen_flush` diffs and emits only changed cells. See migration note in `src/screen.sh`. | XL | [#TBD](https://github.com/fissible/shellframe/issues) | open | B |
+| A | Input hardening: generic CSI drain path (prevents buffer leakage from unknown sequences), F1–F12 constants + recognition, modifier+arrow sequences (`\x1b[1;2A` etc.) — all changes in `src/input.sh` + `src/keymap.sh` | S | [#29](https://github.com/fissible/shellframe/issues/29) | open | 4 |
+| B | Dirty-region rendering: widget dirty flags + conditional re-render in app loop; `shellframe_screen_clear` only called when full repaint is needed; render fns still write to `/dev/tty` — no API break | M | [#30](https://github.com/fissible/shellframe/issues/30) | open | 18 |
+| C | Mouse: `shellframe_mouse_enter/exit` in `screen.sh`; SGR mouse sequence parsing in `shellframe_read_key`; `SHELLFRAME_MOUSE_COL/ROW/BUTTON/ACTION` output vars | S | [#32](https://github.com/fissible/shellframe/issues/32) | open | A |
+| D | Widget hit-test registry: `shellframe_widget_register name top left width height` + `shellframe_widget_at row col`; new module `src/hitbox.sh` | M | [#31](https://github.com/fissible/shellframe/issues/31) | open | 9, 18 |
+| E | Mouse routing in app shell + `on_mouse` handler per widget (click-to-focus, click-to-select in lists, scroll-wheel in scroll views) | M | [#34](https://github.com/fissible/shellframe/issues/34) | open | C, D |
+| F | Framebuffer diff rendering: `_SF_FRAME_CURR/PREV[row*COLS+col]` flat indexed arrays; all render fns write to framebuffer instead of `/dev/tty`; `shellframe_screen_flush` diffs and emits only changed cells. See migration note in `src/screen.sh`. | XL | [#33](https://github.com/fissible/shellframe/issues/33) | open | B |
 
 ---
 

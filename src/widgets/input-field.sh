@@ -169,37 +169,38 @@ shellframe_field_on_key() {
     local _k_ctrl_w="${SHELLFRAME_KEY_CTRL_W:-$'\x17'}"
 
     if [[ "$_key" == $'\r' ]] || [[ "$_key" == $'\n' ]]; then
+        shellframe_shell_mark_dirty
         return 2    # Enter: field confirmed
     elif [[ "$_key" == "$_k_bs" ]]; then
         shellframe_cur_backspace "$_ctx"
-        return 0
+        shellframe_shell_mark_dirty; return 0
     elif [[ "$_key" == "$_k_del" ]]; then
         shellframe_cur_delete "$_ctx"
-        return 0
+        shellframe_shell_mark_dirty; return 0
     elif [[ "$_key" == "$_k_left" ]]; then
         shellframe_cur_move "$_ctx" left
-        return 0
+        shellframe_shell_mark_dirty; return 0
     elif [[ "$_key" == "$_k_right" ]]; then
         shellframe_cur_move "$_ctx" right
-        return 0
+        shellframe_shell_mark_dirty; return 0
     elif [[ "$_key" == "$_k_home" ]] || [[ "$_key" == "$_k_ctrl_a" ]]; then
         shellframe_cur_move "$_ctx" home
-        return 0
+        shellframe_shell_mark_dirty; return 0
     elif [[ "$_key" == "$_k_end" ]] || [[ "$_key" == "$_k_ctrl_e" ]]; then
         shellframe_cur_move "$_ctx" end
-        return 0
+        shellframe_shell_mark_dirty; return 0
     elif [[ "$_key" == "$_k_ctrl_k" ]]; then
         shellframe_cur_kill_to_end "$_ctx"
-        return 0
+        shellframe_shell_mark_dirty; return 0
     elif [[ "$_key" == "$_k_ctrl_u" ]]; then
         shellframe_cur_kill_to_start "$_ctx"
-        return 0
+        shellframe_shell_mark_dirty; return 0
     elif [[ "$_key" == "$_k_ctrl_w" ]]; then
         shellframe_cur_kill_word_left "$_ctx"
-        return 0
+        shellframe_shell_mark_dirty; return 0
     elif _shellframe_field_is_printable "$_key"; then
         shellframe_cur_insert "$_ctx" "$_key"
-        return 0
+        shellframe_shell_mark_dirty; return 0
     fi
 
     return 1

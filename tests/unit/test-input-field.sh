@@ -243,4 +243,22 @@ ptyunit_test_begin "is_printable: empty string returns 1"
 _shellframe_field_is_printable ""
 assert_eq "1" "$?" "empty string not printable"
 
+# ── Dirty-region integration ──────────────────────────────────────────────────
+_SHELLFRAME_SHELL_DIRTY=0
+shellframe_shell_mark_dirty() { _SHELLFRAME_SHELL_DIRTY=1; }
+
+ptyunit_test_begin "field_on_key: marks dirty on printable character"
+shellframe_field_init "f"
+SHELLFRAME_FIELD_CTX="f"
+_SHELLFRAME_SHELL_DIRTY=0
+shellframe_field_on_key "a" || true
+assert_eq "1" "$_SHELLFRAME_SHELL_DIRTY" "dirty set on char insert"
+
+ptyunit_test_begin "field_on_key: does not mark dirty on unrecognized key"
+shellframe_field_init "f"
+SHELLFRAME_FIELD_CTX="f"
+_SHELLFRAME_SHELL_DIRTY=0
+shellframe_field_on_key $'\033[B' || true   # Down arrow — multi-byte, not handled
+assert_eq "0" "$_SHELLFRAME_SHELL_DIRTY" "dirty not set on unrecognized key"
+
 ptyunit_test_summary

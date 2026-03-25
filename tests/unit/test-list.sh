@@ -219,4 +219,29 @@ _out=$(_render_list 1 1 20 4)
 assert_not_contains "$_out" "[x]" "no [x] in single-select"
 assert_not_contains "$_out" "[ ]" "no [ ] in single-select"
 
+# ── Dirty-region integration ──────────────────────────────────────────────────
+# shellframe_shell_mark_dirty is defined in shell.sh; stub it here so list.sh
+# can be tested in isolation without sourcing the full shell module.
+
+_SHELLFRAME_SHELL_DIRTY=0
+shellframe_shell_mark_dirty() { _SHELLFRAME_SHELL_DIRTY=1; }
+
+ptyunit_test_begin "list_on_key: marks dirty on recognized navigation key"
+_reset_list
+_SHELLFRAME_SHELL_DIRTY=0
+shellframe_list_on_key $'\033[B' || true   # Down
+assert_eq "1" "$_SHELLFRAME_SHELL_DIRTY" "dirty set on Down key"
+
+ptyunit_test_begin "list_on_key: marks dirty on Enter (rc=2)"
+_reset_list
+_SHELLFRAME_SHELL_DIRTY=0
+shellframe_list_on_key $'\r' || true   # Enter → rc 2
+assert_eq "1" "$_SHELLFRAME_SHELL_DIRTY" "dirty set on Enter"
+
+ptyunit_test_begin "list_on_key: does not mark dirty on unrecognized key"
+_reset_list
+_SHELLFRAME_SHELL_DIRTY=0
+shellframe_list_on_key "X" || true   # unrecognized → rc 1
+assert_eq "0" "$_SHELLFRAME_SHELL_DIRTY" "dirty not set on unrecognized key"
+
 ptyunit_test_summary

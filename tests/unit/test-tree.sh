@@ -13,6 +13,10 @@ source "$SHELLFRAME_DIR/src/scroll.sh"
 source "$SHELLFRAME_DIR/src/widgets/tree.sh"
 source "$PTYUNIT_HOME/assert.sh"
 
+# Stub: tree on_key calls shellframe_shell_mark_dirty; define it before any test
+_SHELLFRAME_SHELL_DIRTY=0
+shellframe_shell_mark_dirty() { _SHELLFRAME_SHELL_DIRTY=1; }
+
 # ── Test tree: two roots, first has two children, second is a leaf ────────────
 #
 #  ▶ Root A       (index 0, depth 0, haschildren 1)
@@ -263,5 +267,19 @@ assert_eq "0" "$SHELLFRAME_TREE_FOCUSED" "focused set to 0"
 
 ptyunit_test_begin "tree_size: returns 1 1 0 0"
 assert_output "1 1 0 0" shellframe_tree_size
+
+# ── Dirty-region integration ──────────────────────────────────────────────────
+
+ptyunit_test_begin "tree_on_key: marks dirty on Down arrow"
+_reset_tree
+_SHELLFRAME_SHELL_DIRTY=0
+shellframe_tree_on_key $'\033[B' || true   # Down
+assert_eq "1" "$_SHELLFRAME_SHELL_DIRTY" "dirty set on navigation"
+
+ptyunit_test_begin "tree_on_key: does not mark dirty on unrecognized key"
+_reset_tree
+_SHELLFRAME_SHELL_DIRTY=0
+shellframe_tree_on_key "x" || true
+assert_eq "0" "$_SHELLFRAME_SHELL_DIRTY" "dirty not set on unrecognized key"
 
 ptyunit_test_summary

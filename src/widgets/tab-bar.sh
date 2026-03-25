@@ -138,12 +138,12 @@ shellframe_tabbar_on_key() {
 
     if [[ "$_key" == "$_k_left" ]]; then
         (( _active > 0 )) && (( SHELLFRAME_TABBAR_ACTIVE-- )) || true
-        return 0
+        shellframe_shell_mark_dirty; return 0
     fi
 
     if [[ "$_key" == "$_k_right" ]]; then
         (( _active < _n-1 )) && (( SHELLFRAME_TABBAR_ACTIVE++ )) || true
-        return 0
+        shellframe_shell_mark_dirty; return 0
     fi
 
     return 1

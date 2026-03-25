@@ -325,4 +325,53 @@ assert_eq "0" "$_TST_A_FOCUS" "a gets on_focus 0"
 assert_eq "1" "$_TST_B_FOCUS" "b gets on_focus 1 (request applied)"
 assert_eq "" "$_SHELLFRAME_SHELL_FOCUS_REQUEST" "request cleared after draw"
 
+# ── Dirty-region tracking ──────────────────────────────────────────────────────
+
+ptyunit_test_begin "dirty: _SHELLFRAME_SHELL_DIRTY initialized to 0"
+_SHELLFRAME_SHELL_DIRTY=0
+assert_eq "0" "$_SHELLFRAME_SHELL_DIRTY" "dirty flag starts at 0"
+
+ptyunit_test_begin "dirty: shellframe_shell_mark_dirty sets flag to 1"
+_SHELLFRAME_SHELL_DIRTY=0
+shellframe_shell_mark_dirty
+assert_eq "1" "$_SHELLFRAME_SHELL_DIRTY" "mark_dirty sets flag to 1"
+
+ptyunit_test_begin "dirty: _shellframe_shell_draw_if_dirty calls draw when dirty"
+_reset_shell
+_tsd_ROOT_render
+_shellframe_shell_focus_init
+_TST_A_RENDER_CALLED=0
+_TST_B_RENDER_CALLED=0
+_SHELLFRAME_SHELL_DIRTY=1
+_shellframe_shell_draw_if_dirty "_tsd" "ROOT"
+assert_eq "1" "$_TST_A_RENDER_CALLED" "a_render called when dirty"
+assert_eq "1" "$_TST_B_RENDER_CALLED" "b_render called when dirty"
+
+ptyunit_test_begin "dirty: _shellframe_shell_draw_if_dirty resets flag to 0 after draw"
+_reset_shell
+_tsd_ROOT_render
+_shellframe_shell_focus_init
+_SHELLFRAME_SHELL_DIRTY=1
+_shellframe_shell_draw_if_dirty "_tsd" "ROOT"
+assert_eq "0" "$_SHELLFRAME_SHELL_DIRTY" "dirty flag reset to 0 after draw"
+
+ptyunit_test_begin "dirty: _shellframe_shell_draw_if_dirty skips draw when clean"
+_reset_shell
+_tsd_ROOT_render
+_shellframe_shell_focus_init
+_TST_A_RENDER_CALLED=0
+_TST_B_RENDER_CALLED=0
+_SHELLFRAME_SHELL_DIRTY=0
+_shellframe_shell_draw_if_dirty "_tsd" "ROOT"
+assert_eq "0" "$_TST_A_RENDER_CALLED" "a_render NOT called when clean"
+assert_eq "0" "$_TST_B_RENDER_CALLED" "b_render NOT called when clean"
+
+ptyunit_test_begin "dirty: _shellframe_shell_draw does not call shellframe_screen_clear"
+_reset_shell
+_SCREEN_CLEAR_CALLED=0
+shellframe_screen_clear() { _SCREEN_CLEAR_CALLED=1; }
+_shellframe_shell_draw "_tsd" "ROOT"
+assert_eq "0" "$_SCREEN_CLEAR_CALLED" "draw does not call screen_clear"
+unset -f shellframe_screen_clear
+
 ptyunit_test_summary

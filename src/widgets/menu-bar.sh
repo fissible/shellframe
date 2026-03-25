@@ -435,24 +435,24 @@ shellframe_menubar_on_key() {
                     local _idx="${!_idx_var}"
                     _idx=$(( (_idx + 1) % _n_menus ))
                     printf -v "$_idx_var" '%d' "$_idx"
-                    return 0
+                    shellframe_shell_mark_dirty; return 0
                     ;;
                 "$SHELLFRAME_KEY_LEFT")
                     local _idx="${!_idx_var}"
                     _idx=$(( (_idx - 1 + _n_menus) % _n_menus ))
                     printf -v "$_idx_var" '%d' "$_idx"
-                    return 0
+                    shellframe_shell_mark_dirty; return 0
                     ;;
                 "$SHELLFRAME_KEY_ENTER"|"$SHELLFRAME_KEY_DOWN")
                     _shellframe_mb_open_dropdown "$_ctx" "${!_idx_var}"
                     printf -v "$_state_var" '%s' "dropdown"
-                    return 0
+                    shellframe_shell_mark_dirty; return 0
                     ;;
                 "$SHELLFRAME_KEY_UP"|"$SHELLFRAME_KEY_ESC")
                     SHELLFRAME_MENUBAR_RESULT=""
                     printf -v "$_state_var" '%s' "idle"
                     SHELLFRAME_MENUBAR_FOCUSED=0
-                    return 2
+                    shellframe_shell_mark_dirty; return 2
                     ;;
                 *)
                     return 1
@@ -467,7 +467,7 @@ shellframe_menubar_on_key() {
                 "$SHELLFRAME_KEY_DOWN")
                     shellframe_sel_move "mb_${_ctx}_dd" down
                     _shellframe_mb_skip_seps "$_ctx" "mb_${_ctx}_dd" "$_mvar" down
-                    return 0
+                    shellframe_shell_mark_dirty; return 0
                     ;;
                 "$SHELLFRAME_KEY_UP")
                     local _cursor
@@ -477,11 +477,11 @@ shellframe_menubar_on_key() {
                     if (( _cursor <= _first )); then
                         # Already at first selectable — close dropdown to bar
                         printf -v "$_state_var" '%s' "bar"
-                        return 0
+                        shellframe_shell_mark_dirty; return 0
                     fi
                     shellframe_sel_move "mb_${_ctx}_dd" up
                     _shellframe_mb_skip_seps "$_ctx" "mb_${_ctx}_dd" "$_mvar" up
-                    return 0
+                    shellframe_shell_mark_dirty; return 0
                     ;;
                 "$SHELLFRAME_KEY_RIGHT"|"$SHELLFRAME_KEY_LEFT")
                     # Check if cursor is on a sigil item AND key is Right
@@ -498,7 +498,7 @@ shellframe_menubar_on_key() {
                         printf -v "_SHELLFRAME_MB_${_ctx}_SM_VN"  '%s' "$_vn"
                         printf -v "_SHELLFRAME_MB_${_ctx}_SM_LBL" '%s' "$_lbl"
                         printf -v "$_state_var" '%s' "submenu"
-                        return 0
+                        shellframe_shell_mark_dirty; return 0
                     fi
                     # Move to adjacent top-level menu
                     if [[ "$_key" == "$SHELLFRAME_KEY_RIGHT" ]]; then
@@ -508,7 +508,7 @@ shellframe_menubar_on_key() {
                     fi
                     printf -v "$_idx_var" '%d' "$_idx"
                     _shellframe_mb_open_dropdown "$_ctx" "$_idx"
-                    return 0
+                    shellframe_shell_mark_dirty; return 0
                     ;;
                 "$SHELLFRAME_KEY_ENTER")
                     local _cursor _raw_item _vn="" _lbl=""
@@ -523,18 +523,18 @@ shellframe_menubar_on_key() {
                         printf -v "_SHELLFRAME_MB_${_ctx}_SM_VN"  '%s' "$_vn"
                         printf -v "_SHELLFRAME_MB_${_ctx}_SM_LBL" '%s' "$_lbl"
                         printf -v "$_state_var" '%s' "submenu"
-                        return 0
+                        shellframe_shell_mark_dirty; return 0
                     fi
                     # Leaf selection
                     local _menu_label="${SHELLFRAME_MENU_NAMES[$_idx]}"
                     SHELLFRAME_MENUBAR_RESULT="${_menu_label}|${_raw_item}"
                     printf -v "$_state_var" '%s' "idle"
                     SHELLFRAME_MENUBAR_FOCUSED=0
-                    return 2
+                    shellframe_shell_mark_dirty; return 2
                     ;;
                 "$SHELLFRAME_KEY_ESC")
                     printf -v "$_state_var" '%s' "bar"
-                    return 0
+                    shellframe_shell_mark_dirty; return 0
                     ;;
                 *)
                     return 1
@@ -552,11 +552,11 @@ shellframe_menubar_on_key() {
             case "$_key" in
                 "$SHELLFRAME_KEY_DOWN")
                     shellframe_sel_move "mb_${_ctx}_sm" down
-                    return 0
+                    shellframe_shell_mark_dirty; return 0
                     ;;
                 "$SHELLFRAME_KEY_UP")
                     shellframe_sel_move "mb_${_ctx}_sm" up
-                    return 0
+                    shellframe_shell_mark_dirty; return 0
                     ;;
                 "$SHELLFRAME_KEY_ENTER")
                     local _sm_cursor _sm_item
@@ -566,11 +566,11 @@ shellframe_menubar_on_key() {
                     SHELLFRAME_MENUBAR_RESULT="${_menu_label}|${_lbl}|${_sm_item}"
                     printf -v "$_state_var" '%s' "idle"
                     SHELLFRAME_MENUBAR_FOCUSED=0
-                    return 2
+                    shellframe_shell_mark_dirty; return 2
                     ;;
                 "$SHELLFRAME_KEY_LEFT"|"$SHELLFRAME_KEY_ESC")
                     printf -v "$_state_var" '%s' "dropdown"
-                    return 0
+                    shellframe_shell_mark_dirty; return 0
                     ;;
                 *)
                     return 1

@@ -1047,56 +1047,57 @@ shellframe_editor_on_key() {
         printf -v "_SHELLFRAME_ED_${_ctx}_GOAL_COL" '%d' -1
         _shellframe_ed_insert_text "$_ctx" "$_paste_buf"
         _shellframe_ed_ensure_visible "$_ctx"
-        return 0
+        shellframe_shell_mark_dirty; return 0
 
     elif [[ "$_key" == "$_k_ctrl_d" ]]; then
         shellframe_editor_get_text "$_ctx" SHELLFRAME_EDITOR_RESULT
+        shellframe_shell_mark_dirty
         return 2
 
     elif [[ "$_key" == $'\r' ]] || [[ "$_key" == $'\n' ]]; then
         printf -v "_SHELLFRAME_ED_${_ctx}_GOAL_COL" '%d' -1
         _shellframe_ed_newline "$_ctx"
         _shellframe_ed_ensure_visible "$_ctx"
-        return 0
+        shellframe_shell_mark_dirty; return 0
 
     elif [[ "$_key" == "$_k_bs" ]]; then
         printf -v "_SHELLFRAME_ED_${_ctx}_GOAL_COL" '%d' -1
         _shellframe_ed_backspace "$_ctx"
         _shellframe_ed_ensure_visible "$_ctx"
-        return 0
+        shellframe_shell_mark_dirty; return 0
 
     elif [[ "$_key" == "$_k_del" ]]; then
         printf -v "_SHELLFRAME_ED_${_ctx}_GOAL_COL" '%d' -1
         _shellframe_ed_delete_char "$_ctx"
         _shellframe_ed_ensure_visible "$_ctx"
-        return 0
+        shellframe_shell_mark_dirty; return 0
 
     elif [[ "$_key" == "$_k_left" ]]; then
         printf -v "_SHELLFRAME_ED_${_ctx}_GOAL_COL" '%d' -1
         _shellframe_ed_move_left "$_ctx"
         _shellframe_ed_ensure_visible "$_ctx"
-        return 0
+        shellframe_shell_mark_dirty; return 0
 
     elif [[ "$_key" == "$_k_right" ]]; then
         printf -v "_SHELLFRAME_ED_${_ctx}_GOAL_COL" '%d' -1
         _shellframe_ed_move_right "$_ctx"
         _shellframe_ed_ensure_visible "$_ctx"
-        return 0
+        shellframe_shell_mark_dirty; return 0
 
     elif [[ "$_key" == "$_k_up" ]]; then
         _shellframe_ed_move_up "$_ctx"
         _shellframe_ed_ensure_visible "$_ctx"
-        return 0
+        shellframe_shell_mark_dirty; return 0
 
     elif [[ "$_key" == "$_k_down" ]]; then
         _shellframe_ed_move_down "$_ctx"
         _shellframe_ed_ensure_visible "$_ctx"
-        return 0
+        shellframe_shell_mark_dirty; return 0
 
     elif [[ "$_key" == "$_k_home" ]] || [[ "$_key" == "$_k_ctrl_a" ]]; then
         printf -v "_SHELLFRAME_ED_${_ctx}_GOAL_COL" '%d' -1
         printf -v "_SHELLFRAME_ED_${_ctx}_COL" '%d' 0
-        return 0
+        shellframe_shell_mark_dirty; return 0
 
     elif [[ "$_key" == "$_k_end" ]] || [[ "$_key" == "$_k_ctrl_e" ]]; then
         printf -v "_SHELLFRAME_ED_${_ctx}_GOAL_COL" '%d' -1
@@ -1105,41 +1106,41 @@ shellframe_editor_on_key() {
         local _line
         _shellframe_ed_get_line "$_ctx" "$_row" _line
         printf -v "_SHELLFRAME_ED_${_ctx}_COL" '%d' "${#_line}"
-        return 0
+        shellframe_shell_mark_dirty; return 0
 
     elif [[ "$_key" == "$_k_pgup" ]]; then
         _shellframe_ed_page_up "$_ctx"
         _shellframe_ed_ensure_visible "$_ctx"
-        return 0
+        shellframe_shell_mark_dirty; return 0
 
     elif [[ "$_key" == "$_k_pgdn" ]]; then
         _shellframe_ed_page_down "$_ctx"
         _shellframe_ed_ensure_visible "$_ctx"
-        return 0
+        shellframe_shell_mark_dirty; return 0
 
     elif [[ "$_key" == "$_k_ctrl_k" ]]; then
         printf -v "_SHELLFRAME_ED_${_ctx}_GOAL_COL" '%d' -1
         _shellframe_ed_kill_to_eol "$_ctx"
         _shellframe_ed_ensure_visible "$_ctx"
-        return 0
+        shellframe_shell_mark_dirty; return 0
 
     elif [[ "$_key" == "$_k_ctrl_u" ]]; then
         printf -v "_SHELLFRAME_ED_${_ctx}_GOAL_COL" '%d' -1
         _shellframe_ed_kill_to_sol "$_ctx"
         _shellframe_ed_ensure_visible "$_ctx"
-        return 0
+        shellframe_shell_mark_dirty; return 0
 
     elif [[ "$_key" == "$_k_ctrl_w" ]]; then
         printf -v "_SHELLFRAME_ED_${_ctx}_GOAL_COL" '%d' -1
         _shellframe_ed_kill_word_left "$_ctx"
         _shellframe_ed_ensure_visible "$_ctx"
-        return 0
+        shellframe_shell_mark_dirty; return 0
 
     elif _shellframe_ed_is_printable "$_key"; then
         printf -v "_SHELLFRAME_ED_${_ctx}_GOAL_COL" '%d' -1
         _shellframe_ed_insert_char "$_ctx" "$_key"
         _shellframe_ed_ensure_visible "$_ctx"
-        return 0
+        shellframe_shell_mark_dirty; return 0
     fi
 
     return 1

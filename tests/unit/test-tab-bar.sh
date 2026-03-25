@@ -147,4 +147,22 @@ _content=$(sed 's/\033\[[0-9;]*[A-Za-z]//g' "$_out")
 assert_contains "$_content" "│"
 rm -f "$_out"
 
+# ── Dirty-region integration ──────────────────────────────────────────────────
+_SHELLFRAME_SHELL_DIRTY=0
+shellframe_shell_mark_dirty() { _SHELLFRAME_SHELL_DIRTY=1; }
+
+ptyunit_test_begin "tabbar_on_key: marks dirty on Right arrow"
+SHELLFRAME_TABBAR_LABELS=("Files" "Edit" "View")
+SHELLFRAME_TABBAR_ACTIVE=0
+_SHELLFRAME_SHELL_DIRTY=0
+shellframe_tabbar_on_key $'\033[C' || true   # Right arrow
+assert_eq "1" "$_SHELLFRAME_SHELL_DIRTY" "dirty set on tab change"
+
+ptyunit_test_begin "tabbar_on_key: does not mark dirty on unrecognized key"
+SHELLFRAME_TABBAR_LABELS=("Files" "Edit" "View")
+SHELLFRAME_TABBAR_ACTIVE=0
+_SHELLFRAME_SHELL_DIRTY=0
+shellframe_tabbar_on_key "x" || true
+assert_eq "0" "$_SHELLFRAME_SHELL_DIRTY" "dirty not set on unrecognized key"
+
 ptyunit_test_summary

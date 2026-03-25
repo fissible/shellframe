@@ -424,4 +424,20 @@ _content=$(sed 's/\033\[[0-9;]*[A-Za-z]//g' "$_out")
 assert_contains "$_content" "Alice"   # left-aligned text still rendered
 rm -f "$_out"
 
+# ── Dirty-region integration ──────────────────────────────────────────────────
+_SHELLFRAME_SHELL_DIRTY=0
+shellframe_shell_mark_dirty() { _SHELLFRAME_SHELL_DIRTY=1; }
+
+ptyunit_test_begin "grid_on_key: marks dirty on Down arrow"
+_reset_grid
+_SHELLFRAME_SHELL_DIRTY=0
+shellframe_grid_on_key $'\033[B' || true   # Down
+assert_eq "1" "$_SHELLFRAME_SHELL_DIRTY" "dirty set on navigation"
+
+ptyunit_test_begin "grid_on_key: does not mark dirty on unrecognized key"
+_reset_grid
+_SHELLFRAME_SHELL_DIRTY=0
+shellframe_grid_on_key "x" || true
+assert_eq "0" "$_SHELLFRAME_SHELL_DIRTY" "dirty not set on unrecognized key"
+
 ptyunit_test_summary

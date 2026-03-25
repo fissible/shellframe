@@ -367,17 +367,18 @@ shellframe_tree_on_key() {
         local _vcursor
         shellframe_sel_cursor "$_ctx" _vcursor
         _shellframe_tree_view_to_node "$_ctx" "$_vcursor" SHELLFRAME_TREE_RESULT
+        shellframe_shell_mark_dirty
         return 2
 
     elif [[ "$_key" == "$_k_down" ]]; then
         shellframe_sel_move "$_ctx" down
         shellframe_scroll_ensure_row "$_ctx" "$(shellframe_sel_cursor "$_ctx")"
-        return 0
+        shellframe_shell_mark_dirty; return 0
 
     elif [[ "$_key" == "$_k_up" ]]; then
         shellframe_sel_move "$_ctx" up
         shellframe_scroll_ensure_row "$_ctx" "$(shellframe_sel_cursor "$_ctx")"
-        return 0
+        shellframe_shell_mark_dirty; return 0
 
     elif [[ "$_key" == "$_k_right" ]]; then
         # Expand the current node if it has children and is currently collapsed
@@ -391,7 +392,7 @@ shellframe_tree_on_key() {
         if [[ "$_hc" == "1" && "$_exp" != "1" ]]; then
             _shellframe_tree_toggle_node "$_ctx"
         fi
-        return 0
+        shellframe_shell_mark_dirty; return 0
 
     elif [[ "$_key" == "$_k_left" ]]; then
         local _vcursor
@@ -423,33 +424,33 @@ shellframe_tree_on_key() {
                 done
             fi
         fi
-        return 0
+        shellframe_shell_mark_dirty; return 0
 
     elif [[ "$_key" == " " ]]; then
         _shellframe_tree_toggle_node "$_ctx"
-        return 0
+        shellframe_shell_mark_dirty; return 0
 
     elif [[ "$_key" == "$_k_pgdn" ]]; then
         shellframe_sel_move "$_ctx" page_down "$_vrows"
         shellframe_scroll_move "$_ctx" page_down
         shellframe_scroll_ensure_row "$_ctx" "$(shellframe_sel_cursor "$_ctx")"
-        return 0
+        shellframe_shell_mark_dirty; return 0
 
     elif [[ "$_key" == "$_k_pgup" ]]; then
         shellframe_sel_move "$_ctx" page_up "$_vrows"
         shellframe_scroll_move "$_ctx" page_up
         shellframe_scroll_ensure_row "$_ctx" "$(shellframe_sel_cursor "$_ctx")"
-        return 0
+        shellframe_shell_mark_dirty; return 0
 
     elif [[ "$_key" == "$_k_home" ]]; then
         shellframe_sel_move "$_ctx" home
         shellframe_scroll_move "$_ctx" home
-        return 0
+        shellframe_shell_mark_dirty; return 0
 
     elif [[ "$_key" == "$_k_end" ]]; then
         shellframe_sel_move "$_ctx" end
         shellframe_scroll_move "$_ctx" end
-        return 0
+        shellframe_shell_mark_dirty; return 0
     fi
 
     return 1

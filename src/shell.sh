@@ -94,6 +94,17 @@ _SHELLFRAME_SHELL_FOCUS_RING=()   # ordered array of focusable region names
 _SHELLFRAME_SHELL_FOCUS_IDX=0     # current index into focus ring
 _SHELLFRAME_SHELL_FOCUS_REQUEST="" # pending focus-by-name request (applied on next draw)
 _SHELLFRAME_SHELL_NEXT=""         # next screen name (set by event callbacks)
+_SHELLFRAME_SHELL_DIRTY=0         # 1 = at least one widget changed state; draw needed
+
+# ── shellframe_shell_mark_dirty ───────────────────────────────────────────────
+
+# Signal that visible state has changed and a draw cycle is needed.
+# Called by widget on_key handlers when they modify state (selection move,
+# text edit, scroll, etc.).  Safe to call outside of shellframe_shell context —
+# it just sets the global, which is ignored if not in a shell session.
+shellframe_shell_mark_dirty() {
+    _SHELLFRAME_SHELL_DIRTY=1
+}
 
 # ── shellframe_shell_region ───────────────────────────────────────────────────
 
@@ -300,6 +311,18 @@ _shellframe_shell_draw() {
     done
 }
 
+# ── _shellframe_shell_draw_if_dirty ──────────────────────────────────────────
+#
+# Conditional draw: calls _shellframe_shell_draw only when _SHELLFRAME_SHELL_DIRTY=1,
+# then resets the flag. Skips rendering entirely when nothing has changed.
+# Use in place of a direct _shellframe_shell_draw call wherever a widget's
+# on_key result drives the decision to redraw.
+_shellframe_shell_draw_if_dirty() {
+    (( _SHELLFRAME_SHELL_DIRTY )) || return 0
+    _SHELLFRAME_SHELL_DIRTY=0
+    _shellframe_shell_draw "$@"
+}
+
 # ── _shellframe_shell_read_key ────────────────────────────────────────────────
 #
 # Like shellframe_read_key but with a 1-second timeout on the initial byte.
@@ -411,7 +434,9 @@ shellframe_shell() {
                         "${_prefix}_${_current}_${_focused}_on_focus" 0 || true
                     _shellframe_shell_focus_next
                 fi
-                _shellframe_shell_draw "$_prefix" "$_current"
+                # Focus change is always visible — mark dirty unconditionally.
+                shellframe_shell_mark_dirty
+                _shellframe_shell_draw_if_dirty "$_prefix" "$_current"
                 continue
             fi
 
@@ -430,7 +455,9 @@ shellframe_shell() {
                         "${_prefix}_${_current}_${_focused}_on_focus" 0 || true
                     _shellframe_shell_focus_prev
                 fi
-                _shellframe_shell_draw "$_prefix" "$_current"
+                # Focus change is always visible — mark dirty unconditionally.
+                shellframe_shell_mark_dirty
+                _shellframe_shell_draw_if_dirty "$_prefix" "$_current"
                 continue
             fi
 
@@ -441,7 +468,9 @@ shellframe_shell() {
                 "${_prefix}_${_current}_${_focused}_on_key" "$_key" || _rc=$?
 
                 if (( _rc == 0 )); then
-                    _shellframe_shell_draw "$_prefix" "$_current"
+                    # Widget handled the key.  Draw only if the widget (or its
+                    # underlying module) called shellframe_shell_mark_dirty.
+                    _shellframe_shell_draw_if_dirty "$_prefix" "$_current"
                     continue
                 elif (( _rc == 2 )); then
                     _SHELLFRAME_SHELL_NEXT=""
@@ -454,7 +483,7 @@ shellframe_shell() {
                         _SHELLFRAME_SHELL_NEXT=""
                         _screen_done=1
                     else
-                        _shellframe_shell_draw "$_prefix" "$_current"
+                        _shellframe_shell_draw_if_dirty "$_prefix" "$_current"
                     fi
                     continue
                 fi

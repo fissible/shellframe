@@ -357,4 +357,24 @@ _st_var="_SHELLFRAME_MB_mb_STATE"
 assert_eq "dropdown" "${!_st_var}" "still dropdown"
 assert_output "0" shellframe_sel_cursor "mb_mb_dd"
 
+# ── Dirty-region integration ──────────────────────────────────────────────────
+_SHELLFRAME_SHELL_DIRTY=0
+shellframe_shell_mark_dirty() { _SHELLFRAME_SHELL_DIRTY=1; }
+
+ptyunit_test_begin "menubar_on_key: marks dirty on Right in BAR state"
+_reset_mb
+SHELLFRAME_MENUBAR_CTX="mb"
+shellframe_menubar_on_focus 1   # → BAR state
+_SHELLFRAME_SHELL_DIRTY=0
+shellframe_menubar_on_key $'\033[C' || true   # Right arrow
+assert_eq "1" "$_SHELLFRAME_SHELL_DIRTY" "dirty set in BAR state"
+
+ptyunit_test_begin "menubar_on_key: does not mark dirty on unrecognized key in IDLE"
+_reset_mb
+SHELLFRAME_MENUBAR_CTX="mb"
+shellframe_menubar_on_focus 0   # → IDLE state
+_SHELLFRAME_SHELL_DIRTY=0
+shellframe_menubar_on_key "x" || true
+assert_eq "0" "$_SHELLFRAME_SHELL_DIRTY" "dirty not set on unrecognized key in IDLE"
+
 ptyunit_test_summary
