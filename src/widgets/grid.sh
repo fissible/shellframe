@@ -316,10 +316,12 @@ shellframe_grid_render() {
         printf '\033[%d;%dH%s%*s\033[%d;%dH' "$_row" "$_left" "$_grid_bg" "$_width" '' "$_row" "$_left" >&3
         [[ "$_ridx" -ge "$_nrows" ]] && continue
 
-        # Apply stripe background to even data rows
+        # Apply stripe background to even data rows; compute per-row bg reset
+        local _row_bg_rst="$_bg_rst"
         if [[ -n "${SHELLFRAME_GRID_STRIPE_BG:-}" ]] && (( _ridx % 2 == 1 )); then
             printf '\033[%d;%dH%s%*s' "$_row" "$_left" "$SHELLFRAME_GRID_STRIPE_BG" "$_width" '' >&3
             printf '\033[%d;%dH' "$_row" "$_left" >&3
+            _row_bg_rst="${_rst}${SHELLFRAME_GRID_STRIPE_BG}"
         fi
 
         local _is_cursor=0
@@ -403,7 +405,7 @@ shellframe_grid_render() {
                 else
                     printf '\033[%d;%dH%s%s%s' \
                         "$_row" "$(( _left + _sxoff ))" \
-                        "$_gray" "$_schar" "$_bg_rst" >&3
+                        "$_gray" "$_schar" "$_row_bg_rst" >&3
                 fi
             fi
         done
@@ -413,7 +415,7 @@ shellframe_grid_render() {
         # Right end-of-data border in data row (only for rows that have data)
         if (( _right_border_x >= 0 && _ridx < _nrows )); then
             printf '\033[%d;%dH%s│%s' \
-                "$_row" "$(( _left + _right_border_x ))" "$_gray" "$_bg_rst" >&3
+                "$_row" "$(( _left + _right_border_x ))" "$_gray" "$_row_bg_rst" >&3
         fi
     done
 
