@@ -279,3 +279,28 @@ shellframe_scroll_col_visible() {
     local _vcols="${!_vcols_var:-0}"
     (( _col >= _left && _col < _left + _vcols ))
 }
+
+# ── shellframe_scroll_on_mouse ─────────────────────────────────────────────────
+
+# Generic scroll-wheel handler for widgets that use scroll.sh (editor, grid).
+# Caller passes the context name as the first argument, followed by the standard
+# on_mouse arguments from shellframe_shell dispatch.
+#
+#   shellframe_scroll_on_mouse ctx button action [remaining args ignored]
+#
+# Only handles scroll-wheel presses (buttons 64/65).  Returns 0 if handled,
+# 1 otherwise.
+shellframe_scroll_on_mouse() {
+    local _ctx="$1" _button="$2" _action="$3"
+    [[ "$_action" != "press" ]] && return 1
+    if (( _button == 64 )); then
+        shellframe_scroll_move "$_ctx" up
+        shellframe_shell_mark_dirty
+        return 0
+    elif (( _button == 65 )); then
+        shellframe_scroll_move "$_ctx" down
+        shellframe_shell_mark_dirty
+        return 0
+    fi
+    return 1
+}

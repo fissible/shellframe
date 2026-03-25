@@ -114,6 +114,7 @@ shellframe_shell_region() {
     local _name="$1" _top="$2" _left="$3" _width="$4" _height="$5"
     local _focus="${6:-focus}"
     _SHELLFRAME_SHELL_REGIONS+=("${_name}:${_top}:${_left}:${_width}:${_height}:${_focus}")
+    shellframe_widget_register "$_name" "$_top" "$_left" "$_width" "$_height"
 }
 
 # ── shellframe_shell_focus_set ────────────────────────────────────────────────
@@ -291,6 +292,7 @@ _shellframe_shell_draw() {
 
     # Re-register regions from scratch (layout uses updated focus state)
     _SHELLFRAME_SHELL_REGIONS=()
+    shellframe_widget_clear    # hitbox in sync with region re-registration
     "${_prefix}_${_screen}_render"
 
     # Rebuild focus ring, preserving current focus owner by name
@@ -356,6 +358,23 @@ _shellframe_shell_read_key() {
                     [A-Za-z~]) break ;;
                 esac
             done
+            # SGR mouse: ESC [ < Pb ; Px ; Py M (press) or m (release)
+            local _sgr_pfx=$'\x1b[<'
+            if [[ "$_k" == "${_sgr_pfx}"* ]]; then
+                local _params="${_k#"${_sgr_pfx}"}"
+                _params="${_params%[Mm]}"
+                SHELLFRAME_MOUSE_BUTTON="${_params%%;*}"
+                local _rest="${_params#*;}"
+                SHELLFRAME_MOUSE_COL="${_rest%%;*}"
+                SHELLFRAME_MOUSE_ROW="${_rest#*;}"
+                if [[ "$_k" == *M ]]; then
+                    SHELLFRAME_MOUSE_ACTION="press"
+                else
+                    SHELLFRAME_MOUSE_ACTION="release"
+                fi
+                printf -v "$_out_var" '%s' "$SHELLFRAME_KEY_MOUSE"
+                return 0
+            fi
         fi
     fi
 
@@ -371,9 +390,10 @@ shellframe_shell() {
     local _saved_stty
     _saved_stty=$(shellframe_raw_save)
     shellframe_screen_enter
+    shellframe_mouse_enter
     shellframe_cursor_hide
     shellframe_raw_enter
-    trap "shellframe_raw_exit '$_saved_stty'; shellframe_cursor_show; shellframe_screen_exit" EXIT INT TERM
+    trap "shellframe_raw_exit '$_saved_stty'; shellframe_mouse_exit; shellframe_cursor_show; shellframe_screen_exit" EXIT INT TERM
 
     local _k_tab="${SHELLFRAME_KEY_TAB:-$'\t'}"
     local _k_shift_tab="${SHELLFRAME_KEY_SHIFT_TAB:-$'\033[Z'}"
@@ -461,6 +481,31 @@ shellframe_shell() {
                 continue
             fi
 
+            # ── Mouse event: hit-test + dispatch ──────────────────────────
+            if [[ "$_key" == "$SHELLFRAME_KEY_MOUSE" ]]; then
+                local _target=""
+                shellframe_widget_at "$SHELLFRAME_MOUSE_ROW" "$SHELLFRAME_MOUSE_COL" _target
+                if [[ -n "$_target" ]]; then
+                    # Click-to-focus: move focus if click lands on unfocused widget
+                    if [[ "$_target" != "$_focused" ]]; then
+                        shellframe_shell_focus_set "$_target"
+                        shellframe_shell_mark_dirty
+                    fi
+                    # Dispatch on_mouse handler if the widget defines one
+                    if declare -f "${_prefix}_${_current}_${_target}_on_mouse" >/dev/null 2>&1; then
+                        local _rt=1 _rl=1 _rw=0 _rh=0
+                        _shellframe_shell_region_bounds "$_target" _rt _rl _rw _rh || true
+                        "${_prefix}_${_current}_${_target}_on_mouse" \
+                            "$SHELLFRAME_MOUSE_BUTTON" "$SHELLFRAME_MOUSE_ACTION" \
+                            "$SHELLFRAME_MOUSE_ROW"    "$SHELLFRAME_MOUSE_COL" \
+                            "$_rt" "$_rl" "$_rw" "$_rh"
+                    fi
+                    _shellframe_shell_draw_if_dirty "$_prefix" "$_current"
+                fi
+                # Click outside all registered widgets is a no-op
+                continue
+            fi
+
             # ── Deliver key to focused region ──────────────────────────────
             if [[ -n "$_focused" ]] && \
                declare -f "${_prefix}_${_current}_${_focused}_on_key" >/dev/null 2>&1; then
@@ -511,6 +556,7 @@ shellframe_shell() {
     done
 
     shellframe_raw_exit "$_saved_stty"
+    shellframe_mouse_exit
     shellframe_cursor_show
     shellframe_screen_exit
     trap - EXIT INT TERM WINCH

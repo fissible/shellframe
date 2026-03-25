@@ -155,6 +155,26 @@ shellframe_sel_move() {
     printf -v "$_cursor_var" '%d' "$_cursor"
 }
 
+# ── shellframe_sel_set ────────────────────────────────────────────────────────
+
+# Set the cursor directly to $index.  Clamps to [0, count-1].
+# Useful for mouse click handlers that compute an absolute item index.
+shellframe_sel_set() {
+    local _ctx="$1" _index="$2"
+    _shellframe_sel_validate_ctx "$_ctx" || return 1
+    local _cursor_var="_SHELLFRAME_SEL_${_ctx}_CURSOR"
+    local _count_var="_SHELLFRAME_SEL_${_ctx}_COUNT"
+    local _count="${!_count_var:-0}"
+    local _i="$_index"
+    if (( _count <= 0 )); then
+        _i=0
+    else
+        (( _i < 0 )) && _i=0 || true
+        (( _i >= _count )) && _i=$(( _count - 1 )) || true
+    fi
+    printf -v "$_cursor_var" '%d' "$_i"
+}
+
 # ── shellframe_sel_toggle ──────────────────────────────────────────────────────
 
 # Toggle the multi-select flag for item at $index (default: current cursor).

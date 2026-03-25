@@ -9,6 +9,8 @@ TESTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.."; pwd)"
 SHELLFRAME_DIR="$(cd "$TESTS_DIR/.."; pwd)"
 
 source "$SHELLFRAME_DIR/src/input.sh"
+source "$SHELLFRAME_DIR/src/screen.sh"
+source "$SHELLFRAME_DIR/src/hitbox.sh"
 source "$SHELLFRAME_DIR/src/shell.sh"
 source "$PTYUNIT_HOME/assert.sh"
 
@@ -373,5 +375,23 @@ shellframe_screen_clear() { _SCREEN_CLEAR_CALLED=1; }
 _shellframe_shell_draw "_tsd" "ROOT"
 assert_eq "0" "$_SCREEN_CLEAR_CALLED" "draw does not call screen_clear"
 unset -f shellframe_screen_clear
+
+# ── Hitbox integration ────────────────────────────────────────────────────────
+
+ptyunit_test_begin "shell: shellframe_shell_region registers widget in hitbox"
+_reset_shell
+shellframe_widget_clear
+shellframe_shell_region "mywidget" 5 3 20 10
+assert_output "mywidget" shellframe_widget_at 8 10
+
+ptyunit_test_begin "shell: _shellframe_shell_draw clears hitbox and re-registers"
+_reset_shell
+# Pre-populate hitbox with a stale entry
+shellframe_widget_register "stale" 0 0 100 100
+_shellframe_shell_draw "_tsd" "ROOT"
+# After draw, only current-screen regions should be in the hitbox
+# "stale" was registered before the draw; after draw it should be gone
+# (the draw cleared the hitbox and re-registered from _tsd_ROOT_render)
+assert_output "" shellframe_widget_at 0 0 2>/dev/null || true   # stale gone
 
 ptyunit_test_summary

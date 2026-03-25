@@ -199,6 +199,60 @@ shellframe_list_on_key() {
     return 1
 }
 
+# ── shellframe_list_on_mouse ──────────────────────────────────────────────────
+#
+# Mouse handler for the list widget.  Called by shellframe_shell when an SGR
+# mouse event lands inside the list's registered region.
+#
+#   shellframe_list_on_mouse button action mrow mcol rtop rleft rwidth rheight
+#
+#   button  — 0=left, 1=middle, 2=right, 64=scroll-up, 65=scroll-down
+#   action  — "press" or "release"
+#   mrow    — 1-based terminal row of the event
+#   mcol    — 1-based terminal column
+#   rtop    — top terminal row of the list region (1-based)
+#   rleft   — left terminal col of the list region
+#   rwidth  — region width
+#   rheight — region height
+#
+# Returns: 0 if handled, 1 otherwise.
+
+shellframe_list_on_mouse() {
+    local _button="$1" _action="$2" _mrow="$3" _mcol="$4"
+    local _rtop="$5"
+    local _ctx="${SHELLFRAME_LIST_CTX:-list}"
+
+    # Only act on press events
+    [[ "$_action" != "press" ]] && return 1
+
+    # Scroll wheel: move viewport without moving cursor
+    if (( _button == 64 )); then
+        shellframe_scroll_move "$_ctx" up
+        shellframe_shell_mark_dirty
+        return 0
+    elif (( _button == 65 )); then
+        shellframe_scroll_move "$_ctx" down
+        shellframe_shell_mark_dirty
+        return 0
+    fi
+
+    # Left/middle/right click: move cursor to clicked item
+    if (( _button <= 2 )); then
+        local _scroll_top
+        shellframe_scroll_top "$_ctx" _scroll_top
+        local _item_idx=$(( _scroll_top + _mrow - _rtop ))
+        local _n=${#SHELLFRAME_LIST_ITEMS[@]}
+        if (( _item_idx >= 0 && _item_idx < _n )); then
+            shellframe_sel_set "$_ctx" "$_item_idx"
+            shellframe_scroll_ensure_row "$_ctx" "$_item_idx"
+            shellframe_shell_mark_dirty
+            return 0
+        fi
+    fi
+
+    return 1
+}
+
 # ── shellframe_list_on_focus ──────────────────────────────────────────────────
 
 shellframe_list_on_focus() {

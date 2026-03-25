@@ -244,4 +244,47 @@ _SHELLFRAME_SHELL_DIRTY=0
 shellframe_list_on_key "X" || true   # unrecognized → rc 1
 assert_eq "0" "$_SHELLFRAME_SHELL_DIRTY" "dirty not set on unrecognized key"
 
+# ── shellframe_list_on_mouse ──────────────────────────────────────────────────
+# Args: button action mrow mcol rtop rleft rwidth rheight
+
+_reset_list_mouse() {
+    SHELLFRAME_LIST_CTX="li"
+    SHELLFRAME_LIST_ITEMS=("apple" "banana" "cherry" "date" "elderberry")
+    shellframe_list_init "li" 10
+    _SHELLFRAME_SHELL_DIRTY=0
+}
+
+ptyunit_test_begin "list_on_mouse: left click on row 2 (rtop=1, scroll=0) selects index 1"
+_reset_list_mouse
+# mrow=2, rtop=1, scroll_top=0 → item_idx = 0 + (2-1) = 1 (banana)
+shellframe_list_on_mouse 0 press 2 1 1 1 20 5
+assert_output "1" shellframe_sel_cursor "li"
+assert_eq "1" "$_SHELLFRAME_SHELL_DIRTY" "dirty set on click"
+
+ptyunit_test_begin "list_on_mouse: left click on row 1 (rtop=1) selects index 0"
+_reset_list_mouse
+shellframe_list_on_mouse 0 press 1 1 1 1 20 5
+assert_output "0" shellframe_sel_cursor "li"
+
+ptyunit_test_begin "list_on_mouse: release event is no-op — cursor unchanged, returns 1"
+_reset_list_mouse
+shellframe_sel_set "li" 2
+shellframe_list_on_mouse 0 release 2 1 1 1 20 5 || true
+assert_output "2" shellframe_sel_cursor "li"
+
+ptyunit_test_begin "list_on_mouse: click past last item is no-op — cursor unchanged"
+_reset_list_mouse
+shellframe_list_on_mouse 0 press 99 1 1 1 20 5 || true
+assert_output "0" shellframe_sel_cursor "li"
+
+ptyunit_test_begin "list_on_mouse: scroll-up (button 64) marks dirty"
+_reset_list_mouse
+shellframe_list_on_mouse 64 press 1 1 1 1 20 5
+assert_eq "1" "$_SHELLFRAME_SHELL_DIRTY" "dirty set on scroll-up"
+
+ptyunit_test_begin "list_on_mouse: scroll-down (button 65) marks dirty"
+_reset_list_mouse
+shellframe_list_on_mouse 65 press 1 1 1 1 20 5
+assert_eq "1" "$_SHELLFRAME_SHELL_DIRTY" "dirty set on scroll-down"
+
 ptyunit_test_summary

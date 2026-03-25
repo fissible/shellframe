@@ -203,4 +203,27 @@ result=0
 shellframe_sel_init "bad ctx" 5 2>/dev/null && result=0 || result=1
 assert_eq "1" "$result" "invalid ctx name returns error"
 
+# ── shellframe_sel_set ────────────────────────────────────────────────────────
+
+ptyunit_test_begin "sel_set: sets cursor to given index"
+shellframe_sel_init "ss" 5
+shellframe_sel_set "ss" 3
+assert_output "3" shellframe_sel_cursor "ss"
+
+ptyunit_test_begin "sel_set: clamps negative index to 0"
+shellframe_sel_init "ss" 5
+shellframe_sel_set "ss" -1
+assert_output "0" shellframe_sel_cursor "ss"
+
+ptyunit_test_begin "sel_set: clamps out-of-range index to count-1"
+shellframe_sel_init "ss" 5
+shellframe_sel_set "ss" 10
+assert_output "4" shellframe_sel_cursor "ss"
+
+ptyunit_test_begin "sel_set: index 0 works on non-empty list"
+shellframe_sel_init "ss" 3
+shellframe_sel_move "ss" end   # cursor at 2
+shellframe_sel_set "ss" 0
+assert_output "0" shellframe_sel_cursor "ss"
+
 ptyunit_test_summary
