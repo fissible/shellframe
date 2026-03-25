@@ -117,7 +117,7 @@ Start every new session by reading this file. Update task status here when work 
 | # | Task | Effort | GH Issue | Status | Deps |
 |---|------|--------|----------|--------|------|
 | A | Input hardening: generic CSI drain path (prevents buffer leakage from unknown sequences), F1–F12 constants + recognition, modifier+arrow sequences (`\x1b[1;2A` etc.) — all changes in `src/input.sh` + `src/keymap.sh` | S | [#29](https://github.com/fissible/shellframe/issues/29) | open | 4 |
-| B | Dirty-region rendering: widget dirty flags + conditional re-render in app loop; `shellframe_screen_clear` only called when full repaint is needed; render fns still write to `/dev/tty` — no API break | M | [#30](https://github.com/fissible/shellframe/issues/30) | open | 18 |
+| B | Dirty-region rendering: widget dirty flags + conditional re-render in app loop; `shellframe_screen_clear` only called when full repaint is needed; render fns still write to `/dev/tty` — no API break | M | [#30](https://github.com/fissible/shellframe/issues/30) | closed | 18 |
 | C | Mouse: `shellframe_mouse_enter/exit` in `screen.sh`; SGR mouse sequence parsing in `shellframe_read_key`; `SHELLFRAME_MOUSE_COL/ROW/BUTTON/ACTION` output vars | S | [#32](https://github.com/fissible/shellframe/issues/32) | open | A |
 | D | Widget hit-test registry: `shellframe_widget_register name top left width height` + `shellframe_widget_at row col`; new module `src/hitbox.sh` | M | [#31](https://github.com/fissible/shellframe/issues/31) | open | 9, 18 |
 | E | Mouse routing in app shell + `on_mouse` handler per widget (click-to-focus, click-to-select in lists, scroll-wheel in scroll views) | M | [#34](https://github.com/fissible/shellframe/issues/34) | open | C, D |
@@ -272,4 +272,14 @@ _Last updated: 2026-03-16 (session 5)_
   - Added fd dup setup + render tests to `test-alert.sh` (was missing fd dup; render tests existed), `test-list.sh` (new `shellframe_list_render` tests), `test-input-field.sh` (new `shellframe_field_render` + `_shellframe_field_is_printable` tests).
   - **Result**: **84% total coverage** (3658/4356 lines), **1052/1052 assertions pass**.
   - Highlights: alert.sh 55%→89%, list.sh →98%, input-field.sh 54%→85%, screen.sh →100%.
-- **Next**: PM decision — push `main` to origin (20+ commits behind as of 2026-03-23). Phase 7 platform enhancements or other prioritised work.
+- **Phase 7B dirty-region rendering complete (2026-03-25)**: [shellframe#30](https://github.com/fissible/shellframe/issues/30) closed.
+  - `src/shell.sh`: `_SHELLFRAME_SHELL_DIRTY` flag, `shellframe_shell_mark_dirty()`, `_shellframe_shell_draw_if_dirty()`. Event loop skips `_shellframe_shell_draw` unless widget marks dirty. Tab/Shift-Tab always mark dirty (focus change always visible).
+  - All 7 V2 composable widgets call `shellframe_shell_mark_dirty` before rc=0/2: list, input-field, editor, tab-bar, tree, grid, menu-bar.
+  - Dirty integration tests added to all 7 widget test files + test-shell.sh. 1075/1075 assertions pass.
+  - Docker matrix blocked by Docker Desktop file-sharing config (`/opt/homebrew/opt/ptyunit/libexec` not shared) — pre-existing infra issue, not a code regression.
+  - Merged `feature/phase-7b-dirty-region` → `main`.
+- **Phase 7 parallel work in progress**: Background worktree agents dispatched for:
+  - **Task A (#29, input hardening)** on branch `feature/phase-7a-input-hardening`: CSI drain, F1–F12 constants, modifier+arrow sequences.
+  - **Task D (#31, hitbox registry)** on branch `feature/phase-7d-hitbox`: new `src/hitbox.sh` with `shellframe_widget_register`, `shellframe_widget_at`, `shellframe_widget_clear`.
+  - Await agent completions; review/merge; then Task C (#32, mouse, deps A) and Task F (#33, framebuffer diff, deps B=done); finally Task E (#34, mouse routing, deps C+D).
+- **Next**: Review completed parallel agent work (A and D) when background agents return.
