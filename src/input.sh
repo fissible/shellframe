@@ -82,6 +82,9 @@ SHELLFRAME_KEY_F12=$'\x1b[24~'
 # Modifier+arrow sequences: ESC [ 1 ; <mod> <dir>
 # Modifier codes: 2=Shift, 3=Alt, 5=Ctrl
 SHELLFRAME_KEY_SHIFT_UP=$'\x1b[1;2A'
+# Mouse sentinel — set by shellframe_read_key when an SGR mouse event is parsed.
+# Callers branch on [[ "$key" == "$SHELLFRAME_KEY_MOUSE" ]] and read the vars below.
+SHELLFRAME_KEY_MOUSE='MOUSE'
 SHELLFRAME_KEY_SHIFT_DOWN=$'\x1b[1;2B'
 SHELLFRAME_KEY_SHIFT_RIGHT=$'\x1b[1;2C'
 SHELLFRAME_KEY_SHIFT_LEFT=$'\x1b[1;2D'
@@ -93,6 +96,17 @@ SHELLFRAME_KEY_CTRL_UP=$'\x1b[1;5A'
 SHELLFRAME_KEY_CTRL_DOWN=$'\x1b[1;5B'
 SHELLFRAME_KEY_CTRL_RIGHT=$'\x1b[1;5C'
 SHELLFRAME_KEY_CTRL_LEFT=$'\x1b[1;5D'
+
+# Output variables set by shellframe_read_key when a mouse event is parsed.
+# Valid only when the most-recent key equals SHELLFRAME_KEY_MOUSE.
+#   SHELLFRAME_MOUSE_BUTTON  — 0=left, 1=middle, 2=right, 64=scroll-up, 65=scroll-down
+#   SHELLFRAME_MOUSE_COL     — 1-based terminal column
+#   SHELLFRAME_MOUSE_ROW     — 1-based terminal row
+#   SHELLFRAME_MOUSE_ACTION  — "press" or "release"
+SHELLFRAME_MOUSE_BUTTON=""
+SHELLFRAME_MOUSE_COL=""
+SHELLFRAME_MOUSE_ROW=""
+SHELLFRAME_MOUSE_ACTION=""
 
 # Read one keypress (including full escape sequences) into a variable.
 #
@@ -144,6 +158,24 @@ shellframe_read_key() {
                     [A-Za-z~]) break ;;
                 esac
             done
+            # SGR mouse: ESC [ < Pb ; Px ; Py M (press) or m (release)
+            # Detect by prefix ESC[< and letter final byte M or m.
+            local _sgr_pfx=$'\x1b[<'
+            if [[ "$_k" == "${_sgr_pfx}"* ]]; then
+                local _params="${_k#"${_sgr_pfx}"}"   # strip ESC[<
+                _params="${_params%[Mm]}"               # strip trailing M or m
+                SHELLFRAME_MOUSE_BUTTON="${_params%%;*}"
+                local _rest="${_params#*;}"
+                SHELLFRAME_MOUSE_COL="${_rest%%;*}"
+                SHELLFRAME_MOUSE_ROW="${_rest#*;}"
+                if [[ "$_k" == *M ]]; then
+                    SHELLFRAME_MOUSE_ACTION="press"
+                else
+                    SHELLFRAME_MOUSE_ACTION="release"
+                fi
+                printf -v "$_out_var" '%s' "$SHELLFRAME_KEY_MOUSE"
+                return 0
+            fi
         fi
     fi
     printf -v "$_out_var" '%s' "$_k"

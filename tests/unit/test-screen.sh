@@ -70,4 +70,14 @@ shellframe_screen_exit
 assert_eq "0" "$?" "screen_exit exits 0"
 exec 3>/dev/null   # re-open fd 3 after screen_exit closed it
 
+# ── shellframe_mouse_enter / shellframe_mouse_exit ───────────────────────────
+
+ptyunit_test_begin "mouse_enter: exits 0"
+shellframe_mouse_enter
+assert_eq "0" "$?" "mouse_enter exits 0"
+
+ptyunit_test_begin "mouse_exit: exits 0"
+shellframe_mouse_exit
+assert_eq "0" "$?" "mouse_exit exits 0"
+
 ptyunit_test_summary

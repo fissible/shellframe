@@ -67,6 +67,23 @@ shellframe_screen_clear() {
 shellframe_cursor_hide() { printf '\033[?25l' >&3; }
 shellframe_cursor_show() { printf '\033[?25h' >&3; }
 
+# ── Mouse reporting ───────────────────────────────────────────────────────────
+#
+# Enable/disable SGR mouse reporting (\033[?1006h).  Must be called alongside
+# shellframe_screen_enter/exit so mouse events are cleanly disabled on exit.
+# SGR mode (1006h) reports col/row as decimal integers, avoiding the 223-char
+# limit of the older X10/X11 encoding.
+#
+# Requires \033[?1000h (X11 mouse tracking) to be enabled first; the two
+# sequences are sent together here for convenience.
+shellframe_mouse_enter() {
+    printf '\033[?1000h\033[?1006h' >&3
+}
+
+shellframe_mouse_exit() {
+    printf '\033[?1006l\033[?1000l' >&3
+}
+
 # ── Raw terminal mode ─────────────────────────────────────────────────────────
 #
 # GOTCHA: `read -s` only suppresses echo for the duration of a single `read`

@@ -204,4 +204,80 @@ _got=$(_one_read_hex $'\x1b[1;5C')
 # ESC [ 1 ; 5 C = 1b 5b 31 3b 35 43
 assert_eq "1b5b313b3543" "$_got" "Ctrl+Right sequence returned in full"
 
+# ── SHELLFRAME_KEY_MOUSE constant ────────────────────────────────────────────
+
+ptyunit_test_begin "input: SHELLFRAME_KEY_MOUSE constant is defined and non-empty"
+assert_not_eq "" "$SHELLFRAME_KEY_MOUSE" "SHELLFRAME_KEY_MOUSE is non-empty"
+
+# ── shellframe_read_key: SGR mouse sequence parsing ───────────────────────────
+#
+# Strategy: identical to the CSI drain tests — spawn a bash subprocess with
+# stdin from a pipe carrying a real SGR mouse sequence.  shellframe_read_key
+# runs, sets SHELLFRAME_MOUSE_*, and prints "KEY|BUTTON|COL|ROW|ACTION" for
+# assertion.  This validates the real read + parse path against actual bash
+# `read` behavior (IO validation per CLAUDE.md §5).
+#
+# SGR format: ESC [ < Pb ; Px ; Py M (press) / m (release)
+
+_mouse_read_vars() {
+    local _input="$1"
+    bash -c '
+        source "'"$SHELLFRAME_DIR"'/src/input.sh"
+        SHELLFRAME_MOUSE_BUTTON=""
+        SHELLFRAME_MOUSE_COL=""
+        SHELLFRAME_MOUSE_ROW=""
+        SHELLFRAME_MOUSE_ACTION=""
+        shellframe_read_key _key
+        printf "%s|%s|%s|%s|%s\n" \
+            "$_key" \
+            "${SHELLFRAME_MOUSE_BUTTON}" \
+            "${SHELLFRAME_MOUSE_COL}" \
+            "${SHELLFRAME_MOUSE_ROW}" \
+            "${SHELLFRAME_MOUSE_ACTION}"
+    ' < <(printf '%s' "$_input")
+}
+
+# Parse "KEY|BUTTON|COL|ROW|ACTION" into _mo_key, _mo_btn, _mo_col, _mo_row, _mo_act
+_parse_mouse_out() {
+    local _r="$1"
+    _mo_key="${_r%%|*}"; _r="${_r#*|}"
+    _mo_btn="${_r%%|*}"; _r="${_r#*|}"
+    _mo_col="${_r%%|*}"; _r="${_r#*|}"
+    _mo_row="${_r%%|*}"
+    _mo_act="${_r#*|}"
+}
+
+ptyunit_test_begin "read_key: SGR left-click press — key SHELLFRAME_KEY_MOUSE, all vars set"
+_parse_mouse_out "$(_mouse_read_vars $'\x1b[<0;10;5M')"
+assert_eq "$SHELLFRAME_KEY_MOUSE" "$_mo_key" "key is SHELLFRAME_KEY_MOUSE"
+assert_eq "0"     "$_mo_btn" "button 0 (left)"
+assert_eq "10"    "$_mo_col" "col 10"
+assert_eq "5"     "$_mo_row" "row 5"
+assert_eq "press" "$_mo_act" "action press"
+
+ptyunit_test_begin "read_key: SGR left-click release — action is release"
+_parse_mouse_out "$(_mouse_read_vars $'\x1b[<0;10;5m')"
+assert_eq "release" "$_mo_act" "lowercase m → release"
+
+ptyunit_test_begin "read_key: SGR right-click press — button 2"
+_parse_mouse_out "$(_mouse_read_vars $'\x1b[<2;15;3M')"
+assert_eq "2" "$_mo_btn" "right click = button 2"
+
+ptyunit_test_begin "read_key: SGR scroll-up — button 64"
+_parse_mouse_out "$(_mouse_read_vars $'\x1b[<64;10;5M')"
+assert_eq "64" "$_mo_btn" "scroll-up = button 64"
+
+ptyunit_test_begin "read_key: SGR scroll-down — button 65"
+_parse_mouse_out "$(_mouse_read_vars $'\x1b[<65;10;5M')"
+assert_eq "65" "$_mo_btn" "scroll-down = button 65"
+
+ptyunit_test_begin "read_key: SGR mouse multi-digit coordinates"
+_parse_mouse_out "$(_mouse_read_vars $'\x1b[<0;120;45M')"
+assert_eq "120" "$_mo_col" "col 120"
+assert_eq "45"  "$_mo_row" "row 45"
+
+ptyunit_test_begin "read_key: SGR mouse does not leak bytes to subsequent read"
+_result=$(_two_reads_hex $'\x1b[<0;10;5M''q')
+assert_eq "71" "${_result##*|}" "second read is 'q' (0x71) after mouse sequence"
+
 ptyunit_test_summary
