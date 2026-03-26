@@ -290,3 +290,4 @@ _Last updated: 2026-03-16 (session 5)_
 - **Phase 7 status**: A ✓, B ✓, C ✓, D ✓, E ✓, F ✓ — all closed. **M4 milestone: closed.**
 - **Next**: PM decision — cut v0.3.0 release, begin ShellQL app phases, or other work.
   - Follow-up items (note for PM): diff-view.sh deferred from 7F (uses buffer-building approach, needs architectural restructuring for framebuffer); docker matrix blocked by Docker Desktop file-sharing config (pre-existing, not from 7F).
+- **CI fix for Phase 7F integration tests (2026-03-26)**: PR #35 merged. Root cause: `examples/modal.sh` used `tput cols`/`tput lines` which require `TERM`; GitHub Actions does not set `TERM`, so child exited within init_delay. Fix: replaced with `stty size </dev/tty` (reads kernel PTY window size via TIOCGWINSZ, TERM-independent). Both macOS (bash 3.2) and Ubuntu (bash 5.x) CI now green.
