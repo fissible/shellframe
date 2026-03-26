@@ -121,7 +121,7 @@ Start every new session by reading this file. Update task status here when work 
 | C | Mouse: `shellframe_mouse_enter/exit` in `screen.sh`; SGR mouse sequence parsing in `shellframe_read_key`; `SHELLFRAME_MOUSE_COL/ROW/BUTTON/ACTION` output vars | S | [#32](https://github.com/fissible/shellframe/issues/32) | closed | A |
 | D | Widget hit-test registry: `shellframe_widget_register name top left width height` + `shellframe_widget_at row col`; new module `src/hitbox.sh` | M | [#31](https://github.com/fissible/shellframe/issues/31) | closed | 9, 18 |
 | E | Mouse routing in app shell + `on_mouse` handler per widget (click-to-focus, click-to-select in lists, scroll-wheel in scroll views) | M | [#34](https://github.com/fissible/shellframe/issues/34) | closed | C, D |
-| F | Framebuffer diff rendering: `_SF_FRAME_CURR/PREV[row*COLS+col]` flat indexed arrays; all render fns write to framebuffer instead of `/dev/tty`; `shellframe_screen_flush` diffs and emits only changed cells. See migration note in `src/screen.sh`. | XL | [#33](https://github.com/fissible/shellframe/issues/33) | open | B |
+| F | Framebuffer diff rendering: `_SF_FRAME_CURR/PREV[row*COLS+col]` flat indexed arrays; all render fns write to framebuffer instead of `/dev/tty`; `shellframe_screen_flush` diffs and emits only changed cells. See migration note in `src/screen.sh`. | XL | [#33](https://github.com/fissible/shellframe/issues/33) | closed | B |
 
 ---
 
@@ -132,7 +132,7 @@ Start every new session by reading this file. Update task status here when work 
 | **M1: Shellframe ready** | Phase 1–4 all closed | open |
 | **M2: Mock app complete** | Phase 5 all closed, mock screens working | closed (5/5 screens done) |
 | **M3: ShellQL v0.1** | Phase 6 all closed, integration tests passing | open |
-| **M4: Platform enhancements** | Phase 7 all closed; mouse, diff rendering, full F-key support | open |
+| **M4: Platform enhancements** | Phase 7 all closed; mouse, diff rendering, full F-key support | closed |
 
 ---
 
@@ -286,4 +286,7 @@ _Last updated: 2026-03-16 (session 5)_
 - **Phase 7E mouse routing complete (2026-03-25)**: [shellframe#34](https://github.com/fissible/shellframe/issues/34) closed. `shellframe_sel_set` (selection.sh), hitbox auto-sync in `shellframe_shell_region`, SGR parse in `_shellframe_shell_read_key`, mouse dispatch branch in event loop, `shellframe_mouse_enter/exit` in `shellframe_shell`. `shellframe_list_on_mouse` (click-to-select + scroll-wheel) and `shellframe_scroll_on_mouse` (generic scroll-wheel). 7 PTY IO-validation integration tests. 1253/1253 pass.
 - **Phase 7 status**: A ✓, B ✓, C ✓, D ✓, E ✓ — only F (#33, framebuffer diff, XL) remains.
 - **M4 milestone near**: All Phase 7 tasks except F done. F is a large architectural change (all render fns write to framebuffer instead of /dev/tty). PM should decide whether to cut a release before tackling F.
-- **Next**: PM decision — cut release, start F (#33, framebuffer diff), or other work.
+- **Phase 7F framebuffer diff rendering complete (2026-03-25)**: [shellframe#33](https://github.com/fissible/shellframe/issues/33) closed. Core infrastructure in `src/screen.sh`: `shellframe_fb_frame_start`, `shellframe_fb_put`, `shellframe_fb_print`, `shellframe_fb_fill`, `shellframe_fb_print_ansi`, `shellframe_screen_flush` (CURR/PREV diff, dirty list, erasure detection). All 10 composable render fns migrated (panel, text, split, list, tree, grid, tab-bar, input-field, modal, menu-bar). `src/shell.sh` integrates frame_start+flush around each draw cycle. 7 unit test files updated (source screen.sh, fb_frame_start+flush wrappers, macOS-compatible `tr -d '\033' | sed` ANSI stripping). 15 new framebuffer unit tests in test-screen.sh. 1271/1271 total assertions pass.
+- **Phase 7 status**: A ✓, B ✓, C ✓, D ✓, E ✓, F ✓ — all closed. **M4 milestone: closed.**
+- **Next**: PM decision — cut v0.3.0 release, begin ShellQL app phases, or other work.
+  - Follow-up items (note for PM): diff-view.sh deferred from 7F (uses buffer-building approach, needs architectural restructuring for framebuffer); docker matrix blocked by Docker Desktop file-sharing config (pre-existing, not from 7F).
