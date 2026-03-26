@@ -10,6 +10,14 @@ source "$SHELLFRAME_DIR/src/screen.sh"
 source "$SHELLFRAME_DIR/src/text.sh"
 source "$PTYUNIT_HOME/assert.sh"
 
+# ── fd 3 / coverage-trace setup ──────────────────────────────────────────────
+# text.sh render tests redirect fd 3 to a temp file; ptyunit coverage uses
+# BASH_XTRACEFD=3.  Dup the trace fd to 4, point fd 3 at /dev/null, trace
+# via fd 4 so render test redirects don't swallow coverage trace lines.
+exec 4>&3 2>/dev/null || true
+exec 3>/dev/null
+BASH_XTRACEFD=4
+
 # ── _shellframe_text_align: left (default) ────────────────────────────────────
 
 ptyunit_test_begin "text_align: left — exact fit, unchanged"

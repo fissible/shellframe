@@ -5,9 +5,17 @@ set -u
 TESTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SHELLFRAME_DIR="$(cd "$TESTS_DIR/.." && pwd)"
 
+source "$SHELLFRAME_DIR/src/clip.sh"
+source "$SHELLFRAME_DIR/src/draw.sh"
+source "$SHELLFRAME_DIR/src/screen.sh"
 source "$SHELLFRAME_DIR/src/scroll.sh"
 source "$SHELLFRAME_DIR/src/split.sh"
 source "$PTYUNIT_HOME/assert.sh"
+
+# ── fd 3 / coverage-trace setup ──────────────────────────────────────────────
+exec 4>&3 2>/dev/null || true
+exec 3>/dev/null
+BASH_XTRACEFD=4
 
 # ── shellframe_split_init ────────────────────────────────────────────────────
 
@@ -99,6 +107,83 @@ ptyunit_test_begin "split_set_border: changes border style"
 shellframe_split_init "b6" "v" 2 "0:0"
 shellframe_split_set_border "b6" "none"
 assert_eq "none" "$_SHELLFRAME_SPLIT_b6_BORDER"
+
+# ── shellframe_split_regions ──────────────────────────────────────────────────
+
+# Stub shellframe_shell_region to capture calls
+_SPLIT_REGION_CALLS=()
+shellframe_shell_region() { _SPLIT_REGION_CALLS+=("$1:$2:$3:$4:$5"); }
+
+ptyunit_test_begin "split_regions: 2v — calls shell_region for each child with correct bounds"
+shellframe_split_init "r1" "v" 2 "0:0"
+_SPLIT_REGION_CALLS=()
+shellframe_split_regions "r1" 1 1 80 24 "left" "focus" "right" "focus"
+assert_eq "2" "${#_SPLIT_REGION_CALLS[@]}" "two regions registered"
+assert_eq "left" "${_SPLIT_REGION_CALLS[0]%%:*}" "first region named left"
+assert_eq "right" "${_SPLIT_REGION_CALLS[1]%%:*}" "second region named right"
+
+ptyunit_test_begin "split_regions: 2h — regions cover full width"
+shellframe_split_init "r2" "h" 2 "0:0"
+_SPLIT_REGION_CALLS=()
+shellframe_split_regions "r2" 1 1 80 24 "top" "focus" "bottom" "focus"
+assert_eq "2" "${#_SPLIT_REGION_CALLS[@]}" "two regions registered"
+# Each entry is name:top:left:width:height — width should be 80 for both
+_w0="${_SPLIT_REGION_CALLS[0]}"; _w0="${_w0##*:}"; _w0prev="${_SPLIT_REGION_CALLS[0]%:*}"; _w0="${_w0prev##*:}"
+assert_eq "80" "$_w0" "top pane full width"
+
+ptyunit_test_begin "split_regions: 3v — three regions registered"
+shellframe_split_init "r3" "v" 3 "20:0:20"
+_SPLIT_REGION_CALLS=()
+shellframe_split_regions "r3" 1 1 80 24 "a" "focus" "b" "focus" "c" "focus"
+assert_eq "3" "${#_SPLIT_REGION_CALLS[@]}" "three regions registered"
+
+# ── shellframe_split_render ───────────────────────────────────────────────────
+
+ptyunit_test_begin "split_render: none border is no-op — no framebuffer output"
+shellframe_split_init "sr1" "v" 2 "0:0"
+shellframe_split_set_border "sr1" "none"
+_SF_FRAME_PREV=(); shellframe_fb_frame_start 10 40
+_out=$(mktemp)
+exec 3>"$_out"
+shellframe_split_render "sr1" 1 1 40 10
+shellframe_screen_flush
+exec 3>&-
+exec 3>/dev/null
+_size=$(wc -c < "$_out" | tr -d ' ')
+assert_eq "0" "$_size" "none border produces no output"
+rm -f "$_out"
+
+ptyunit_test_begin "split_render: 2v single border — separator character in output"
+shellframe_split_init "sr2" "v" 2 "0:0"
+_SF_FRAME_PREV=(); shellframe_fb_frame_start 5 20
+_out=$(mktemp)
+exec 3>"$_out"
+shellframe_split_render "sr2" 1 1 20 5
+shellframe_screen_flush
+exec 3>&-
+exec 3>/dev/null
+_content=$(tr -d '\033' < "$_out" | sed 's/\[[0-9;]*[A-Za-z]//g')
+assert_contains "$_content" "│" "vertical separator character present"
+rm -f "$_out"
+
+ptyunit_test_begin "split_render: 2h single border — horizontal separator in output"
+shellframe_split_init "sr3" "h" 2 "0:0"
+_SF_FRAME_PREV=(); shellframe_fb_frame_start 10 20
+_out=$(mktemp)
+exec 3>"$_out"
+shellframe_split_render "sr3" 1 1 20 10
+shellframe_screen_flush
+exec 3>&-
+exec 3>/dev/null
+_content=$(tr -d '\033' < "$_out" | sed 's/\[[0-9;]*[A-Za-z]//g')
+assert_contains "$_content" "─" "horizontal separator character present"
+rm -f "$_out"
+
+# ── Error path ────────────────────────────────────────────────────────────────
+
+ptyunit_test_begin "split_init: invalid ctx returns 1"
+shellframe_split_init "" "v" 2 "0:0"; _rc=$?
+assert_eq "1" "$_rc" "empty ctx returns 1"
 
 # ── Summary ──────────────────────────────────────────────────────────────────
 

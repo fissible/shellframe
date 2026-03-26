@@ -7,11 +7,17 @@ SHELLFRAME_DIR="$(cd "$TESTS_DIR/.." && pwd)"
 
 source "$SHELLFRAME_DIR/src/clip.sh"
 source "$SHELLFRAME_DIR/src/draw.sh"
+source "$SHELLFRAME_DIR/src/screen.sh"
 source "$SHELLFRAME_DIR/src/input.sh"
 source "$SHELLFRAME_DIR/src/selection.sh"
 source "$SHELLFRAME_DIR/src/scroll.sh"
 source "$SHELLFRAME_DIR/src/widgets/tree.sh"
 source "$PTYUNIT_HOME/assert.sh"
+
+# ── fd 3 / coverage-trace setup ──────────────────────────────────────────────
+exec 4>&3 2>/dev/null || true
+exec 3>/dev/null
+BASH_XTRACEFD=4
 
 # Stub: tree on_key calls shellframe_shell_mark_dirty; define it before any test
 _SHELLFRAME_SHELL_DIRTY=0
@@ -281,5 +287,84 @@ _reset_tree
 _SHELLFRAME_SHELL_DIRTY=0
 shellframe_tree_on_key "x" || true
 assert_eq "0" "$_SHELLFRAME_SHELL_DIRTY" "dirty not set on unrecognized key"
+
+# ── _shellframe_tree_node_to_view ─────────────────────────────────────────────
+
+ptyunit_test_begin "node_to_view: node 0 (Root A) → view row 0 when collapsed"
+_reset_tree
+assert_output "0" _shellframe_tree_node_to_view "tr" "0"
+
+ptyunit_test_begin "node_to_view: node 3 (Root B) → view row 1 when collapsed"
+_reset_tree
+assert_output "1" _shellframe_tree_node_to_view "tr" "3"
+
+ptyunit_test_begin "node_to_view: node 5 (Leaf C) → view row 2 when collapsed"
+_reset_tree
+assert_output "2" _shellframe_tree_node_to_view "tr" "5"
+
+ptyunit_test_begin "node_to_view: hidden child node returns 0 (default) when parent collapsed"
+_reset_tree
+# Child A1 (node 1, depth 1) is hidden when Root A is collapsed; function returns 0 as default
+assert_output "0" _shellframe_tree_node_to_view "tr" "1"
+
+ptyunit_test_begin "node_to_view: child node visible after parent expanded"
+_reset_tree
+_shellframe_tree_set_expanded "tr" 0 "1"
+_shellframe_tree_build_view "tr"
+_shellframe_tree_sync_state "tr" 0
+# After expanding Root A: view = 0(Root A) 1(Child A1) 2(Child A2) 3(Root B) 5(Leaf C)
+# Child A1 is at view row 1
+assert_output "1" _shellframe_tree_node_to_view "tr" "1"
+
+# ── shellframe_tree_render ─────────────────────────────────────────────────────
+
+# Render helper: renders tree to a temp file, strips ANSI, returns plain text
+_render_tree() {
+    local _top="${1:-1}" _left="${2:-1}" _width="${3:-20}" _height="${4:-5}"
+    local _out
+    _out=$(mktemp "${TMPDIR:-/tmp}/sf-test-tree.XXXXXX")
+    trap '{ exec 3>/dev/null 2>/dev/null || true; rm -f "$_out"; }' RETURN
+    _SF_FRAME_PREV=()
+    shellframe_fb_frame_start "$_height" "$_width"
+    exec 3>"$_out"
+    shellframe_tree_render "$_top" "$_left" "$_width" "$_height"
+    shellframe_screen_flush
+    exec 3>/dev/null
+    tr -d '\033' < "$_out" | sed 's/\[[0-9;]*[A-Za-z]//g'
+}
+
+ptyunit_test_begin "tree_render: root nodes appear in output"
+_reset_tree
+_out=$(_render_tree 1 1 20 5)
+assert_contains "$_out" "Root A" "Root A in output"
+assert_contains "$_out" "RootB" "Root B in output"
+
+ptyunit_test_begin "tree_render: collapsed parent shows expand indicator"
+_reset_tree
+_out=$(_render_tree 1 1 20 5)
+assert_contains "$_out" "▶" "collapsed node shows ▶"
+
+ptyunit_test_begin "tree_render: expanded parent shows collapse indicator"
+_reset_tree
+_shellframe_tree_set_expanded "tr" 0 "1"
+_shellframe_tree_build_view "tr"
+_shellframe_tree_sync_state "tr" 0
+_out=$(_render_tree 1 1 20 6)
+assert_contains "$_out" "▼" "expanded node shows ▼"
+
+ptyunit_test_begin "tree_render: children visible after parent expanded"
+_reset_tree
+_shellframe_tree_set_expanded "tr" 0 "1"
+_shellframe_tree_build_view "tr"
+_shellframe_tree_sync_state "tr" 0
+_out=$(_render_tree 1 1 20 6)
+assert_contains "$_out" "ChildA1" "child visible after expand"
+
+ptyunit_test_begin "tree_render: leaf node has no expand/collapse indicator"
+_reset_tree
+_out=$(_render_tree 1 1 20 5)
+# Leaf C (no children) should appear without ▶ prefix; check it appears at all
+# Non-selected rows: spaces are not emitted by screen_flush diff optimization
+assert_contains "$_out" "LeafC" "leaf appears in output"
 
 ptyunit_test_summary

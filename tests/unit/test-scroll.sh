@@ -200,4 +200,81 @@ _t=""
 shellframe_scroll_top "t" _t
 assert_eq "7" "$_t"
 
+ptyunit_test_begin "out_var form: left via variable"
+shellframe_scroll_init "t" 100 80 20 20
+shellframe_scroll_move "t" right 5
+_l=""
+shellframe_scroll_left "t" _l
+assert_eq "5" "$_l"
+
+# ── shellframe_scroll_col_visible ─────────────────────────────────────────────
+
+ptyunit_test_begin "col_visible: first col of viewport — visible"
+shellframe_scroll_init "t" 100 80 20 20
+shellframe_scroll_move "t" right 10
+shellframe_scroll_col_visible "t" 10
+assert_eq "0" "$?" "first col visible"
+
+ptyunit_test_begin "col_visible: last col of viewport — visible"
+shellframe_scroll_init "t" 100 80 20 20
+shellframe_scroll_move "t" right 10
+shellframe_scroll_col_visible "t" 29
+assert_eq "0" "$?" "last col visible"
+
+ptyunit_test_begin "col_visible: col to the left of viewport — not visible"
+shellframe_scroll_init "t" 100 80 20 20
+shellframe_scroll_move "t" right 10
+shellframe_scroll_col_visible "t" 9
+assert_eq "1" "$?" "col left of viewport not visible"
+
+ptyunit_test_begin "col_visible: col to the right of viewport — not visible"
+shellframe_scroll_init "t" 100 80 20 20
+shellframe_scroll_move "t" right 10
+shellframe_scroll_col_visible "t" 30
+assert_eq "1" "$?" "col right of viewport not visible"
+
+# ── shellframe_scroll_on_mouse ────────────────────────────────────────────────
+
+# Stub shellframe_shell_mark_dirty (defined in shell.sh)
+_SHELLFRAME_SCROLL_DIRTY=0
+shellframe_shell_mark_dirty() { _SHELLFRAME_SCROLL_DIRTY=1; }
+
+ptyunit_test_begin "scroll_on_mouse: scroll-up (button 64) scrolls up and marks dirty"
+shellframe_scroll_init "t" 100 80 20 40
+shellframe_scroll_move "t" down 10
+_SHELLFRAME_SCROLL_DIRTY=0
+shellframe_scroll_on_mouse "t" 64 "press"
+assert_eq "0" "$?" "scroll-up returns 0"
+assert_output "9" shellframe_scroll_top "t"
+assert_eq "1" "$_SHELLFRAME_SCROLL_DIRTY" "dirty set on scroll-up"
+
+ptyunit_test_begin "scroll_on_mouse: scroll-down (button 65) scrolls down and marks dirty"
+shellframe_scroll_init "t" 100 80 20 40
+_SHELLFRAME_SCROLL_DIRTY=0
+shellframe_scroll_on_mouse "t" 65 "press"
+assert_eq "0" "$?" "scroll-down returns 0"
+assert_output "1" shellframe_scroll_top "t"
+assert_eq "1" "$_SHELLFRAME_SCROLL_DIRTY" "dirty set on scroll-down"
+
+ptyunit_test_begin "scroll_on_mouse: non-press action returns 1"
+shellframe_scroll_init "t" 100 80 20 40
+shellframe_scroll_on_mouse "t" 64 "release"; _rc=$?
+assert_eq "1" "$_rc" "release event returns 1"
+
+ptyunit_test_begin "scroll_on_mouse: unhandled button returns 1"
+shellframe_scroll_init "t" 100 80 20 40
+shellframe_scroll_on_mouse "t" 0 "press"; _rc=$?
+assert_eq "1" "$_rc" "unhandled button returns 1"
+
+# ── Error paths ───────────────────────────────────────────────────────────────
+
+ptyunit_test_begin "scroll_init: invalid ctx name returns 1"
+shellframe_scroll_init "" 10 10 5 5; _rc=$?
+assert_eq "1" "$_rc" "empty ctx returns 1"
+
+ptyunit_test_begin "scroll_move: unknown direction returns 1"
+shellframe_scroll_init "t" 100 80 20 40
+shellframe_scroll_move "t" "bogus_dir"; _rc=$?
+assert_eq "1" "$_rc" "unknown direction returns 1"
+
 ptyunit_test_summary
