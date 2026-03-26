@@ -30,8 +30,9 @@ shellframe_screen_enter
 shellframe_raw_enter
 shellframe_cursor_show
 
-cols=$(tput cols)
-rows=$(tput lines)
+_sz=$(stty size </dev/tty 2>/dev/null) || _sz="24 80"
+rows="${_sz%% *}"
+cols="${_sz##* }"
 
 while true; do
     shellframe_fb_frame_start "$rows" "$cols"
