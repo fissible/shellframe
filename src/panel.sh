@@ -68,6 +68,7 @@ SHELLFRAME_PANEL_FOCUSED=0
 SHELLFRAME_PANEL_FOCUSABLE=1
 SHELLFRAME_PANEL_MODE="framed"    # framed (default) | windowed
 SHELLFRAME_PANEL_TITLE_BG=""      # ANSI escape for title bar background (windowed mode only)
+SHELLFRAME_PANEL_CELL_ATTRS=""    # ANSI prefix applied to every border cell (e.g. theme background)
 
 # ── Internal: border character sets ───────────────────────────────────────────
 
@@ -173,6 +174,8 @@ shellframe_panel_render() {
         _on="${SHELLFRAME_BOLD}"
         _off="${SHELLFRAME_RESET}"
     fi
+    # Prepend per-cell background/theme attrs (e.g. cascade theme content background)
+    [[ -n "${SHELLFRAME_PANEL_CELL_ATTRS:-}" ]] && _on="${SHELLFRAME_PANEL_CELL_ATTRS}${_on}"
 
     local _mode="${SHELLFRAME_PANEL_MODE:-framed}"
     if [[ "$_mode" == "windowed" ]]; then
