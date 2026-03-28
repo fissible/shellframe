@@ -257,7 +257,7 @@ shellframe_modal_render() {
         while IFS= read -r _line; do
             if (( _msg_row < _inner_top + _inner_h - 1 )); then
                 local _clipped
-                _clipped=$(shellframe_str_clip_ellipsis "$_line" "$_line" "$_msg_avail")
+                shellframe_str_clip_ellipsis "$_line" "$_line" "$_msg_avail" _clipped
                 shellframe_fb_print "$_msg_row" "$_msg_col" "$_clipped"
             fi
             (( _msg_row++ ))

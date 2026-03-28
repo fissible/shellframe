@@ -291,4 +291,74 @@ _reset_list_mouse
 shellframe_list_on_mouse 65 press 1 1 1 1 20 5
 assert_eq "1" "$_SHELLFRAME_SHELL_DIRTY" "dirty set on scroll-down"
 
+# ── SHELLFRAME_LIST_TITLE ────────────────────────────────────────────────────
+
+ptyunit_test_begin "list_title: title row appears in render output"
+SHELLFRAME_LIST_ITEMS=("Alpha" "Beta" "Gamma")
+SHELLFRAME_LIST_CTX="lst"
+SHELLFRAME_LIST_TITLE="Relations"
+_reset_list
+_out=$(_render_list 1 1 20 5)
+assert_contains "$_out" "Relations" "title row present"
+assert_contains "$_out" "Alpha" "first item present"
+SHELLFRAME_LIST_TITLE=""
+
+ptyunit_test_begin "list_title: title consumes 1 row — fewer items visible"
+SHELLFRAME_LIST_ITEMS=("A" "B" "C" "D" "E")
+SHELLFRAME_LIST_CTX="lst"
+SHELLFRAME_LIST_TITLE="Header"
+_reset_list
+# height=3 → title uses 1 row, 2 items visible
+_out=$(_render_list 1 1 20 3)
+assert_contains "$_out" "Header" "title row present"
+assert_contains "$_out" "A" "item 0 visible"
+assert_contains "$_out" "B" "item 1 visible"
+assert_not_contains "$_out" "C" "item 2 beyond viewport"
+SHELLFRAME_LIST_TITLE=""
+
+ptyunit_test_begin "list_title: empty title does not consume a row"
+SHELLFRAME_LIST_ITEMS=("A" "B" "C")
+SHELLFRAME_LIST_CTX="lst"
+SHELLFRAME_LIST_TITLE=""
+_reset_list
+_out=$(_render_list 1 1 20 3)
+assert_contains "$_out" "A" "item 0 visible"
+assert_contains "$_out" "B" "item 1 visible"
+assert_contains "$_out" "C" "item 2 visible"
+
+ptyunit_test_begin "list_on_mouse: title offsets click — row 1 is title, row 2 is item 0"
+SHELLFRAME_LIST_CTX="li"
+SHELLFRAME_LIST_ITEMS=("apple" "banana" "cherry")
+SHELLFRAME_LIST_TITLE="Fruits"
+shellframe_list_init "li" 10
+_SHELLFRAME_SHELL_DIRTY=0
+# Click on row 1 (title) should be ignored
+shellframe_list_on_mouse 0 press 1 1 1 1 20 5 || true
+assert_eq "0" "$_SHELLFRAME_SHELL_DIRTY" "title click ignored"
+# Click on row 2 should select item 0
+shellframe_list_on_mouse 0 press 2 1 1 1 20 5
+assert_output "0" shellframe_sel_cursor "li"
+assert_eq "1" "$_SHELLFRAME_SHELL_DIRTY" "item click handled"
+SHELLFRAME_LIST_TITLE=""
+
+ptyunit_test_begin "list_on_mouse: title offsets click — row 3 is item 1"
+SHELLFRAME_LIST_CTX="li"
+SHELLFRAME_LIST_ITEMS=("apple" "banana" "cherry")
+SHELLFRAME_LIST_TITLE="Fruits"
+shellframe_list_init "li" 10
+_SHELLFRAME_SHELL_DIRTY=0
+shellframe_list_on_mouse 0 press 3 1 1 1 20 5
+assert_output "1" shellframe_sel_cursor "li"
+SHELLFRAME_LIST_TITLE=""
+
+ptyunit_test_begin "list_on_mouse: scroll still works with title set"
+SHELLFRAME_LIST_CTX="li"
+SHELLFRAME_LIST_ITEMS=("apple" "banana" "cherry")
+SHELLFRAME_LIST_TITLE="Fruits"
+shellframe_list_init "li" 10
+_SHELLFRAME_SHELL_DIRTY=0
+shellframe_list_on_mouse 65 press 1 1 1 1 20 5
+assert_eq "1" "$_SHELLFRAME_SHELL_DIRTY" "scroll works with title"
+SHELLFRAME_LIST_TITLE=""
+
 ptyunit_test_summary

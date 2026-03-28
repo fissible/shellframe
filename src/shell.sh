@@ -330,8 +330,17 @@ _shellframe_shell_draw() {
 # then resets the flag. Skips rendering entirely when nothing has changed.
 # Use in place of a direct _shellframe_shell_draw call wherever a widget's
 # on_key result drives the decision to redraw.
+#
+# On bash 4+, if more input is already queued in the terminal buffer, the
+# render is deferred — the dirty flag stays set and the caller loops back to
+# process the next event first. This naturally coalesces rapid-fire events
+# (especially mouse-scroll ticks) into a single render at the end.
 _shellframe_shell_draw_if_dirty() {
     (( _SHELLFRAME_SHELL_DIRTY )) || return 0
+    # TODO: Event coalescing — defer render while more input is queued.
+    # Disabled pending investigation of crash in raw terminal mode.
+    # When re-enabled, use: read -t 0 2>/dev/null && return 0
+    # (only under _SHELLFRAME_SHELL_RUNNING=1 && bash 4+)
     _SHELLFRAME_SHELL_DIRTY=0
     _shellframe_shell_draw "$@"
 }
@@ -374,7 +383,11 @@ _shellframe_shell_read_key() {
             if [[ "$_k" == "${_sgr_pfx}"* ]]; then
                 local _params="${_k#"${_sgr_pfx}"}"
                 _params="${_params%[Mm]}"
-                SHELLFRAME_MOUSE_BUTTON="${_params%%;*}"
+                local _raw_btn="${_params%%;*}"
+                SHELLFRAME_MOUSE_SHIFT=$(( (_raw_btn >> 2) & 1 ))
+                SHELLFRAME_MOUSE_META=$(( (_raw_btn >> 3) & 1 ))
+                SHELLFRAME_MOUSE_CTRL=$(( (_raw_btn >> 4) & 1 ))
+                SHELLFRAME_MOUSE_BUTTON=$(( _raw_btn & ~28 ))
                 local _rest="${_params#*;}"
                 SHELLFRAME_MOUSE_COL="${_rest%%;*}"
                 SHELLFRAME_MOUSE_ROW="${_rest#*;}"
@@ -397,6 +410,7 @@ _shellframe_shell_read_key() {
 shellframe_shell() {
     local _prefix="$1"
     local _current="${2:-ROOT}"
+    _SHELLFRAME_SHELL_RUNNING=1
 
     local _saved_stty
     _saved_stty=$(shellframe_raw_save)
@@ -404,7 +418,34 @@ shellframe_shell() {
     shellframe_mouse_enter
     shellframe_cursor_hide
     shellframe_raw_enter
-    trap "shellframe_raw_exit '$_saved_stty'; shellframe_mouse_exit; shellframe_cursor_show; shellframe_screen_exit" EXIT INT TERM
+    # EXIT trap: restore terminal state even if fd 3 is dead.
+    # shellframe_mouse_exit / cursor_show / screen_exit all write >&3.
+    # If fd 3 is bad (crash, signal, or /dev/tty disconnected), fall back to
+    # writing the escape sequences directly to /dev/tty.
+    _shellframe_shell_cleanup() {
+        local _rc=$?
+        shellframe_raw_exit "$1" 2>/dev/null
+        # Try fd 3 first; fall back to /dev/tty
+        if { true >&3; } 2>/dev/null; then
+            shellframe_mouse_exit
+            shellframe_cursor_show
+            shellframe_screen_exit
+        elif [[ -w /dev/tty ]]; then
+            # Disable bracketed paste + mouse reporting + show cursor + exit alt screen
+            printf '\033[?2004l\033[?1006l\033[?1000l\033[?25h\033[?1049l' >/dev/tty 2>/dev/null
+        fi
+        # Diagnostic: log unexpected exits when SHQL_DEBUG is set.
+        # set -u errors exit with rc=1 and do NOT trigger ERR traps.
+        if [[ -n "${SHQL_DEBUG:-}" ]] && (( _rc != 0 )); then
+            {
+                printf 'EXIT: rc=%d\n' "$_rc"
+                printf 'BASH_COMMAND=%s\n' "${BASH_COMMAND:-unknown}"
+                printf 'FUNCNAME=%s\n' "${FUNCNAME[*]:-unknown}"
+                printf 'BASH_LINENO=%s\n' "${BASH_LINENO[*]:-unknown}"
+            } >> /tmp/shql-crash.log 2>/dev/null
+        fi
+    }
+    trap "_shellframe_shell_cleanup '$_saved_stty'" EXIT INT TERM
 
     local _k_tab="${SHELLFRAME_KEY_TAB:-$'\t'}"
     local _k_shift_tab="${SHELLFRAME_KEY_SHIFT_TAB:-$'\033[Z'}"
@@ -499,8 +540,10 @@ shellframe_shell() {
                 local _target=""
                 shellframe_widget_at "$SHELLFRAME_MOUSE_ROW" "$SHELLFRAME_MOUSE_COL" _target
                 if [[ -n "$_target" ]]; then
-                    # Click-to-focus: move focus if click lands on unfocused widget
-                    if [[ "$_target" != "$_focused" ]]; then
+                    # Click-to-focus: move focus if press lands on unfocused widget.
+                    # Ignore release events — the release from a click that changed
+                    # focus (or opened a new tab) must not steal focus back.
+                    if [[ "$SHELLFRAME_MOUSE_ACTION" == "press" && "$_target" != "$_focused" ]]; then
                         shellframe_shell_focus_set "$_target"
                         shellframe_shell_mark_dirty
                     fi
@@ -513,7 +556,16 @@ shellframe_shell() {
                             "$SHELLFRAME_MOUSE_ROW"    "$SHELLFRAME_MOUSE_COL" \
                             "$_rt" "$_rl" "$_rw" "$_rh"
                     fi
-                    _shellframe_shell_draw_if_dirty "$_prefix" "$_current"
+                    # Check for screen transition (same logic as key handler rc=2 path)
+                    if [[ "${_SHELLFRAME_SHELL_NEXT:-}" == "__QUIT__" ]]; then
+                        _current="__QUIT__"; _screen_done=1
+                    elif [[ -n "${_SHELLFRAME_SHELL_NEXT:-}" ]]; then
+                        _current="$_SHELLFRAME_SHELL_NEXT"
+                        _SHELLFRAME_SHELL_NEXT=""
+                        _screen_done=1
+                    else
+                        _shellframe_shell_draw_if_dirty "$_prefix" "$_current"
+                    fi
                 fi
                 # Click outside all registered widgets is a no-op
                 continue
@@ -568,9 +620,15 @@ shellframe_shell() {
         done
     done
 
-    shellframe_raw_exit "$_saved_stty"
-    shellframe_mouse_exit
-    shellframe_cursor_show
-    shellframe_screen_exit
+    _SHELLFRAME_SHELL_RUNNING=0
+    # Normal exit — clear trap first so cleanup doesn't run twice
     trap - EXIT INT TERM WINCH
+    shellframe_raw_exit "$_saved_stty" 2>/dev/null
+    if { true >&3; } 2>/dev/null; then
+        shellframe_mouse_exit
+        shellframe_cursor_show
+        shellframe_screen_exit
+    elif [[ -w /dev/tty ]]; then
+        printf '\033[?2004l\033[?1006l\033[?1000l\033[?25h\033[?1049l' >/dev/tty 2>/dev/null
+    fi
 }

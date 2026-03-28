@@ -103,10 +103,16 @@ SHELLFRAME_KEY_CTRL_LEFT=$'\x1b[1;5D'
 #   SHELLFRAME_MOUSE_COL     — 1-based terminal column
 #   SHELLFRAME_MOUSE_ROW     — 1-based terminal row
 #   SHELLFRAME_MOUSE_ACTION  — "press" or "release"
+#   SHELLFRAME_MOUSE_SHIFT   — 1 if Shift was held during the mouse event
+#   SHELLFRAME_MOUSE_META    — 1 if Meta/Alt was held during the mouse event
+#   SHELLFRAME_MOUSE_CTRL    — 1 if Ctrl was held during the mouse event
 SHELLFRAME_MOUSE_BUTTON=""
 SHELLFRAME_MOUSE_COL=""
 SHELLFRAME_MOUSE_ROW=""
 SHELLFRAME_MOUSE_ACTION=""
+SHELLFRAME_MOUSE_SHIFT=0
+SHELLFRAME_MOUSE_META=0
+SHELLFRAME_MOUSE_CTRL=0
 
 # Read one keypress (including full escape sequences) into a variable.
 #
@@ -164,7 +170,11 @@ shellframe_read_key() {
             if [[ "$_k" == "${_sgr_pfx}"* ]]; then
                 local _params="${_k#"${_sgr_pfx}"}"   # strip ESC[<
                 _params="${_params%[Mm]}"               # strip trailing M or m
-                SHELLFRAME_MOUSE_BUTTON="${_params%%;*}"
+                local _raw_btn="${_params%%;*}"
+                SHELLFRAME_MOUSE_SHIFT=$(( (_raw_btn >> 2) & 1 ))
+                SHELLFRAME_MOUSE_META=$(( (_raw_btn >> 3) & 1 ))
+                SHELLFRAME_MOUSE_CTRL=$(( (_raw_btn >> 4) & 1 ))
+                SHELLFRAME_MOUSE_BUTTON=$(( _raw_btn & ~28 ))
                 local _rest="${_params#*;}"
                 SHELLFRAME_MOUSE_COL="${_rest%%;*}"
                 SHELLFRAME_MOUSE_ROW="${_rest#*;}"

@@ -37,6 +37,8 @@
 #   shellframe_editor_init [ctx] [viewport_rows]
 #   shellframe_editor_render top left width height
 #   shellframe_editor_on_key key  → 0 handled | 1 unhandled | 2 submit
+#   shellframe_editor_on_mouse button action mrow mcol top left width height
+#     → 0 click inside (cursor moved) | 1 outside or release
 #   shellframe_editor_on_focus focused
 #   shellframe_editor_size → "1 1 0 0"
 #   shellframe_editor_get_text [ctx] [out_var]
@@ -66,9 +68,11 @@ SHELLFRAME_EDITOR_CTX="editor"
 SHELLFRAME_EDITOR_FOCUSED=0
 SHELLFRAME_EDITOR_FOCUSABLE=1
 SHELLFRAME_EDITOR_BG=""
+SHELLFRAME_EDITOR_FG=""             # optional FG color for unfocused text (e.g. dim)
 SHELLFRAME_EDITOR_LINES=()
 SHELLFRAME_EDITOR_RESULT=""
 SHELLFRAME_EDITOR_WRAP=1
+SHELLFRAME_EDITOR_DIRECT_RENDER=0   # 1 = write to fd3 directly (skip FB)
 
 # ── Internal: line array ──────────────────────────────────────────────────────
 
@@ -929,7 +933,7 @@ shellframe_editor_render() {
             local _screen_row=$(( _top + _r ))
             local _vr=$(( _vtop + _r ))
 
-            printf -v _tmp '\033[%d;%dH%s%*s' "$_screen_row" "$_left" "${SHELLFRAME_EDITOR_BG:-}" "$_width" ''
+            printf -v _tmp '\033[%d;%dH\033[0m%s%*s' "$_screen_row" "$_left" "${SHELLFRAME_EDITOR_BG:-}" "$_width" ''
             _buf+="$_tmp"
             [[ $_vr -ge $_total_vrows ]] && continue
 
@@ -949,10 +953,10 @@ shellframe_editor_render() {
                 local _cur_vis=$(( _col - _s ))
                 _buf+="${_vis:0:$_cur_vis}"
                 if (( _cur_vis < _vlen )); then
-                    _buf+="${_rev}${_vis:$_cur_vis:1}${_rst}"
+                    _buf+="${_rev}${_vis:$_cur_vis:1}${_rst}${SHELLFRAME_EDITOR_BG:-}"
                     _buf+="${_vis:$(( _cur_vis + 1 ))}"
                 else
-                    _buf+="${_rev} ${_rst}"
+                    _buf+="${_rev} ${_rst}${SHELLFRAME_EDITOR_BG:-}"
                 fi
                 local _drawn=$(( _vlen < _width ? _vlen : _width ))
                 (( _cur_vis >= _vlen )) && (( _drawn++ )) || true
@@ -962,7 +966,7 @@ shellframe_editor_render() {
                     _buf+="$_tmp"
                 fi
             else
-                _buf+="$_vis"
+                _buf+="${SHELLFRAME_EDITOR_FG:-}${_vis}"
             fi
         done
 
@@ -976,7 +980,7 @@ shellframe_editor_render() {
             local _screen_row=$(( _top + _r ))
             local _content_row=$(( _vtop + _r ))
 
-            printf -v _tmp '\033[%d;%dH%s%*s' "$_screen_row" "$_left" "${SHELLFRAME_EDITOR_BG:-}" "$_width" ''
+            printf -v _tmp '\033[%d;%dH\033[0m%s%*s' "$_screen_row" "$_left" "${SHELLFRAME_EDITOR_BG:-}" "$_width" ''
             _buf+="$_tmp"
             [[ $_content_row -ge $_count ]] && continue
 
@@ -992,10 +996,10 @@ shellframe_editor_render() {
                 local _cur_vis=$(( _col - _hscroll ))
                 _buf+="${_vis:0:$_cur_vis}"
                 if (( _cur_vis < _vlen )); then
-                    _buf+="${_rev}${_vis:$_cur_vis:1}${_rst}"
+                    _buf+="${_rev}${_vis:$_cur_vis:1}${_rst}${SHELLFRAME_EDITOR_BG:-}"
                     _buf+="${_vis:$(( _cur_vis + 1 ))}"
                 else
-                    _buf+="${_rev} ${_rst}"
+                    _buf+="${_rev} ${_rst}${SHELLFRAME_EDITOR_BG:-}"
                 fi
                 local _drawn=$(( _vlen < _width ? _vlen : _width ))
                 (( _cur_vis >= _vlen )) && (( _drawn++ )) || true
@@ -1005,7 +1009,7 @@ shellframe_editor_render() {
                     _buf+="$_tmp"
                 fi
             else
-                _buf+="$_vis"
+                _buf+="${SHELLFRAME_EDITOR_FG:-}${_vis}"
             fi
         done
     fi
@@ -1013,17 +1017,23 @@ shellframe_editor_render() {
     printf -v _tmp '\033[%d;%dH' "$(( _top + _height - 1 ))" "$_left"
     _buf+="$_tmp"
 
-    # Claim editor rows in the framebuffer so shellframe_screen_flush won't
-    # treat prior-frame content (e.g. grid cells from a data tab) at these
-    # positions as erasures and overwrite our output with terminal-default spaces.
-    local _fb_r
-    for (( _fb_r=0; _fb_r<_height; _fb_r++ )); do
-        shellframe_fb_fill "$(( _top + _fb_r ))" "$_left" "$_width" " " "${SHELLFRAME_EDITOR_BG:-}"
-    done
+    if (( ${SHELLFRAME_EDITOR_DIRECT_RENDER:-0} )); then
+        # Fast path: write directly to fd3, bypass framebuffer entirely.
+        # Used during editor typing to avoid expensive full-screen redraws.
+        printf '%s' "$_buf" >&3
+    else
+        # Claim editor rows in the framebuffer so shellframe_screen_flush won't
+        # treat prior-frame content (e.g. grid cells from a data tab) at these
+        # positions as erasures and overwrite our output with terminal-default spaces.
+        local _fb_r
+        for (( _fb_r=0; _fb_r<_height; _fb_r++ )); do
+            shellframe_fb_fill "$(( _top + _fb_r ))" "$_left" "$_width" " " "${SHELLFRAME_EDITOR_BG:-}"
+        done
 
-    # Defer the write until after shellframe_screen_flush so the FB-diff
-    # erasures don't stomp our content.
-    _SHELLFRAME_EDITOR_DEFERRED_BUF+="$_buf"
+        # Defer the write until after shellframe_screen_flush so the FB-diff
+        # erasures don't stomp our content.
+        _SHELLFRAME_EDITOR_DEFERRED_BUF+="$_buf"
+    fi
 }
 
 # ── shellframe_editor_on_key ──────────────────────────────────────────────────
@@ -1161,6 +1171,87 @@ shellframe_editor_on_key() {
     fi
 
     return 1
+}
+
+# ── shellframe_editor_on_mouse ─────────────────────────────────────────────────
+#
+# Map a mouse click to a cursor position within the editor viewport.
+# Only acts on "press" events.  Returns 0 if the click landed inside the
+# editor viewport (cursor moved), 1 otherwise.
+#
+# Usage:
+#   shellframe_editor_on_mouse button action mrow mcol top left width height
+#
+# Expects SHELLFRAME_EDITOR_CTX to be set.
+
+shellframe_editor_on_mouse() {
+    local _button="$1" _action="$2" _mrow="$3" _mcol="$4"
+    local _top="$5" _left="$6" _width="$7" _height="$8"
+
+    [[ "$_action" == "press" ]] || return 1
+
+    # Check bounds
+    (( _mrow >= _top && _mrow < _top + _height )) || return 1
+    (( _mcol >= _left && _mcol < _left + _width )) || return 1
+
+    local _ctx="${SHELLFRAME_EDITOR_CTX:-editor}"
+    local _wrap="${SHELLFRAME_EDITOR_WRAP:-1}"
+    local _row_var="_SHELLFRAME_ED_${_ctx}_ROW"
+    local _col_var="_SHELLFRAME_ED_${_ctx}_COL"
+    local _vtop_var="_SHELLFRAME_ED_${_ctx}_VTOP"
+    local _count_var="_SHELLFRAME_ED_${_ctx}_COUNT"
+    local _vtop="${!_vtop_var:-0}"
+    local _count="${!_count_var:-1}"
+
+    local _click_x=$(( _mcol - _left ))
+    local _click_y=$(( _mrow - _top ))
+
+    if (( _wrap )); then
+        # Wrap mode: use vmap to resolve visual row → (content_row, col)
+        local _vr=$(( _vtop + _click_y ))
+        local _vmap_var="_SHELLFRAME_ED_${_ctx}_VMAP"
+        local _vmap="${!_vmap_var:-0:0:0}"
+        local _arr
+        local _old_IFS="$IFS"
+        IFS=' ' read -r -a _arr <<< "$_vmap"
+        IFS="$_old_IFS"
+        local _total="${#_arr[@]}"
+        (( _vr >= _total )) && _vr=$(( _total - 1 ))
+        (( _vr < 0 )) && _vr=0
+
+        local _e="${_arr[$_vr]:-0:0:0}"
+        local _c="${_e%%:*}"; local _rest="${_e#*:}"
+        local _s="${_rest%%:*}"; local _l="${_rest##*:}"
+
+        local _line
+        _shellframe_ed_get_line "$_ctx" "$_c" _line
+        local _new_col=$(( _s + _click_x ))
+        local _line_len="${#_line}"
+        (( _new_col > _line_len )) && _new_col="$_line_len"
+
+        printf -v "$_row_var" '%d' "$_c"
+        printf -v "$_col_var" '%d' "$_new_col"
+    else
+        # No-wrap mode: content_row = vtop + click_y, col = hscroll + click_x
+        local _hscroll_var="_SHELLFRAME_ED_${_ctx}_HSCROLL"
+        local _hscroll="${!_hscroll_var:-0}"
+        local _content_row=$(( _vtop + _click_y ))
+        (( _content_row >= _count )) && _content_row=$(( _count - 1 ))
+        (( _content_row < 0 )) && _content_row=0
+
+        local _line
+        _shellframe_ed_get_line "$_ctx" "$_content_row" _line
+        local _new_col=$(( _hscroll + _click_x ))
+        local _line_len="${#_line}"
+        (( _new_col > _line_len )) && _new_col="$_line_len"
+
+        printf -v "$_row_var" '%d' "$_content_row"
+        printf -v "$_col_var" '%d' "$_new_col"
+    fi
+
+    printf -v "_SHELLFRAME_ED_${_ctx}_GOAL_COL" '%d' -1
+    shellframe_shell_mark_dirty
+    return 0
 }
 
 # ── shellframe_editor_on_focus ────────────────────────────────────────────────

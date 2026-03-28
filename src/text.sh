@@ -55,7 +55,7 @@ _shellframe_text_align() {
     local _vis="${#_raw}" _out _out_vis
 
     if (( _vis > _width )); then
-        _out=$(shellframe_str_clip_ellipsis "$_raw" "$_rendered" "$_width")
+        shellframe_str_clip_ellipsis "$_raw" "$_rendered" "$_width" _out
         _out_vis="$_width"
     else
         _out="$_rendered"

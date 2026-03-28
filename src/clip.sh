@@ -63,7 +63,7 @@ shellframe_str_len() {
 # bytes from $rendered were left unread), to prevent color bleed.
 # Prints result to stdout; intended for capture with $(...).
 _shellframe_clip_walk() {
-    local _rendered="$1" _limit="$2"
+    local _rendered="$1" _limit="$2" _out_var="${3:-}"
     local _n="${#_rendered}" _i=0 _vis=0 _c _in_esc=0 _had_esc=0 _out=""
     while (( _i < _n && _vis < _limit )); do
         _c="${_rendered:$_i:1}"
@@ -86,7 +86,10 @@ _shellframe_clip_walk() {
     # in the consumed portion. Plain-text strings get a clean substring with no
     # extra bytes; ANSI strings get the reset to prevent color bleed.
     if (( _i < _n && _had_esc )); then
-        printf '%s\033[0m' "$_out"
+        _out+=$'\033[0m'
+    fi
+    if [[ -n "$_out_var" ]]; then
+        printf -v "$_out_var" '%s' "$_out"
     else
         printf '%s' "$_out"
     fi
@@ -104,14 +107,19 @@ _shellframe_clip_walk() {
 #   clipped=$(shellframe_str_clip "$raw" "$rendered" "$col_width")
 #   printf '%s' "$clipped"
 shellframe_str_clip() {
-    local _raw="$1" _rendered="$2" _width="$3"
+    local _raw="$1" _rendered="$2" _width="$3" _out_var="${4:-}"
+    local _result=""
     if (( _width <= 0 )); then
-        return
-    fi
-    if (( ${#_raw} <= _width )); then
-        printf '%s' "$_rendered"
+        _result=""
+    elif (( ${#_raw} <= _width )); then
+        _result="$_rendered"
     else
-        _shellframe_clip_walk "$_rendered" "$_width"
+        _shellframe_clip_walk "$_rendered" "$_width" _result
+    fi
+    if [[ -n "$_out_var" ]]; then
+        printf -v "$_out_var" '%s' "$_result"
+    else
+        printf '%s' "$_result"
     fi
 }
 
@@ -127,21 +135,24 @@ shellframe_str_clip() {
 #   clipped=$(shellframe_str_clip_ellipsis "$raw" "$rendered" "$col_width")
 #   printf '%s' "$clipped"
 shellframe_str_clip_ellipsis() {
-    local _raw="$1" _rendered="$2" _width="$3"
+    local _raw="$1" _rendered="$2" _width="$3" _out_var="${4:-}"
+    local _result=""
     if (( _width <= 0 )); then
-        return
+        _result=""
+    elif (( ${#_raw} <= _width )); then
+        _result="$_rendered"
+    elif (( _width == 1 )); then
+        _result="…"
+    else
+        # Clip to (width - 1) visible chars to make room for the ellipsis.
+        _shellframe_clip_walk "$_rendered" "$(( _width - 1 ))" _result
+        _result+="…"
     fi
-    if (( ${#_raw} <= _width )); then
-        printf '%s' "$_rendered"
-        return
+    if [[ -n "$_out_var" ]]; then
+        printf -v "$_out_var" '%s' "$_result"
+    else
+        printf '%s' "$_result"
     fi
-    if (( _width == 1 )); then
-        printf '…'
-        return
-    fi
-    # Clip to (width - 1) visible chars to make room for the ellipsis.
-    _shellframe_clip_walk "$_rendered" "$(( _width - 1 ))"
-    printf '…'
 }
 
 # ── shellframe_str_pad ─────────────────────────────────────────────────────────

@@ -77,7 +77,9 @@ shellframe_tabbar_render() {
         if (( _tlen > _remaining )); then
             if (( _remaining >= 3 )); then
                 local _tc=$(( _remaining - 2 ))
-                _tab=" $(shellframe_str_clip_ellipsis "$_lbl" "$_lbl" "$_tc") "
+                local _tc_clip
+                shellframe_str_clip_ellipsis "$_lbl" "$_lbl" "$_tc" _tc_clip
+                _tab=" ${_tc_clip} "
             elif (( _remaining == 2 )); then
                 _tab=" …"
             elif (( _remaining == 1 )); then

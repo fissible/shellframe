@@ -239,21 +239,21 @@ assert_eq "1" "$?" "col right of viewport not visible"
 _SHELLFRAME_SCROLL_DIRTY=0
 shellframe_shell_mark_dirty() { _SHELLFRAME_SCROLL_DIRTY=1; }
 
-ptyunit_test_begin "scroll_on_mouse: scroll-up (button 64) scrolls up and marks dirty"
+ptyunit_test_begin "scroll_on_mouse: scroll-up (button 64) scrolls up by SHELLFRAME_SCROLL_MOUSE_STEP and marks dirty"
 shellframe_scroll_init "t" 100 80 20 40
 shellframe_scroll_move "t" down 10
 _SHELLFRAME_SCROLL_DIRTY=0
 shellframe_scroll_on_mouse "t" 64 "press"
 assert_eq "0" "$?" "scroll-up returns 0"
-assert_output "9" shellframe_scroll_top "t"
+assert_output "7" shellframe_scroll_top "t"
 assert_eq "1" "$_SHELLFRAME_SCROLL_DIRTY" "dirty set on scroll-up"
 
-ptyunit_test_begin "scroll_on_mouse: scroll-down (button 65) scrolls down and marks dirty"
+ptyunit_test_begin "scroll_on_mouse: scroll-down (button 65) scrolls down by SHELLFRAME_SCROLL_MOUSE_STEP and marks dirty"
 shellframe_scroll_init "t" 100 80 20 40
 _SHELLFRAME_SCROLL_DIRTY=0
 shellframe_scroll_on_mouse "t" 65 "press"
 assert_eq "0" "$?" "scroll-down returns 0"
-assert_output "1" shellframe_scroll_top "t"
+assert_output "3" shellframe_scroll_top "t"
 assert_eq "1" "$_SHELLFRAME_SCROLL_DIRTY" "dirty set on scroll-down"
 
 ptyunit_test_begin "scroll_on_mouse: non-press action returns 1"

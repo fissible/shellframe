@@ -280,6 +280,12 @@ shellframe_scroll_col_visible() {
     (( _col >= _left && _col < _left + _vcols ))
 }
 
+# ── Mouse scroll step ─────────────────────────────────────────────────────────
+
+# Number of rows to scroll per mouse wheel tick.  Default 3.
+# Override in your app to tune scroll speed.
+SHELLFRAME_SCROLL_MOUSE_STEP=3
+
 # ── shellframe_scroll_on_mouse ─────────────────────────────────────────────────
 
 # Generic scroll-wheel handler for widgets that use scroll.sh (editor, grid).
@@ -292,13 +298,14 @@ shellframe_scroll_col_visible() {
 # 1 otherwise.
 shellframe_scroll_on_mouse() {
     local _ctx="$1" _button="$2" _action="$3"
+    local _step="${SHELLFRAME_SCROLL_MOUSE_STEP:-3}"
     [[ "$_action" != "press" ]] && return 1
     if (( _button == 64 )); then
-        shellframe_scroll_move "$_ctx" up
+        shellframe_scroll_move "$_ctx" up "$_step"
         shellframe_shell_mark_dirty
         return 0
     elif (( _button == 65 )); then
-        shellframe_scroll_move "$_ctx" down
+        shellframe_scroll_move "$_ctx" down "$_step"
         shellframe_shell_mark_dirty
         return 0
     fi

@@ -19,6 +19,8 @@
 #   SHELLFRAME_LIST_MULTISELECT — 0 (default) | 1 (Space toggles selection)
 #   SHELLFRAME_LIST_FOCUSED    — 0 (default) | 1
 #   SHELLFRAME_LIST_FOCUSABLE  — 1 (default) | 0
+#   SHELLFRAME_LIST_TITLE      — optional header row above items (dim text)
+#   SHELLFRAME_LIST_TITLE_STYLE — ANSI prefix for the title row (default: dim)
 #
 # ── Public API ────────────────────────────────────────────────────────────────
 #
@@ -46,6 +48,8 @@ SHELLFRAME_LIST_FOCUSED=0
 SHELLFRAME_LIST_FOCUSABLE=1
 SHELLFRAME_LIST_CURSOR_STYLE=""
 SHELLFRAME_LIST_BG=""
+SHELLFRAME_LIST_TITLE=""
+SHELLFRAME_LIST_TITLE_STYLE=""
 SHELLFRAME_LIST_ITEMS=()
 
 # ── shellframe_list_init ─────────────────────────────────────────────────────
@@ -66,6 +70,19 @@ shellframe_list_render() {
     local _focused="${SHELLFRAME_LIST_FOCUSED:-0}"
     local _multi="${SHELLFRAME_LIST_MULTISELECT:-0}"
     local _n=${#SHELLFRAME_LIST_ITEMS[@]}
+    local _title="${SHELLFRAME_LIST_TITLE:-}"
+    local _lbg="${SHELLFRAME_LIST_BG:-}"
+
+    # Render optional title row (consumes 1 row from the list area)
+    if [[ -n "$_title" ]] && (( _height > 1 )); then
+        local _tstyle="${SHELLFRAME_LIST_TITLE_STYLE:-${SHELLFRAME_GRAY:-$'\033[2m'}}"
+        shellframe_fb_fill "$_top" "$_left" "$_width" " " "$_lbg"
+        local _tclipped
+        shellframe_str_clip_ellipsis "$_title" "$_title" "$(( _width - 1 ))" _tclipped
+        shellframe_fb_print "$_top" "$(( _left + 1 ))" "$_tclipped" "${_lbg}${_tstyle}"
+        _top=$(( _top + 1 ))
+        _height=$(( _height - 1 ))
+    fi
 
     # Keep scroll viewport in sync with current render height
     shellframe_scroll_resize "$_ctx" "$_height" 1
@@ -76,7 +93,7 @@ shellframe_list_render() {
     shellframe_scroll_top "$_ctx" _scroll_top
 
     local _cursor
-    shellframe_sel_cursor "$_ctx" _cursor 2>/dev/null || _cursor=$(shellframe_sel_cursor "$_ctx")
+    shellframe_sel_cursor "$_ctx" _cursor 2>/dev/null || true
 
     local _r
     for (( _r=0; _r<_height; _r++ )); do
@@ -84,7 +101,6 @@ shellframe_list_render() {
         local _item_idx=$(( _scroll_top + _r ))
 
         # Clear this row (only within the list's own column range)
-        local _lbg="${SHELLFRAME_LIST_BG:-}"
         shellframe_fb_fill "$_row" "$_left" "$_width" " " "$_lbg"
 
         [[ $_item_idx -ge $_n ]] && continue
@@ -103,7 +119,7 @@ shellframe_list_render() {
 
         local _text="${_prefix}${_label}"
         local _clipped
-        _clipped=$(shellframe_str_clip_ellipsis "$_text" "$_text" "$_width")
+        shellframe_str_clip_ellipsis "$_text" "$_text" "$_width" _clipped
 
         if (( _item_idx == _cursor )); then
             # Highlight cursor row: custom style, reverse, or dim bg
@@ -120,7 +136,7 @@ shellframe_list_render() {
             shellframe_fb_print "$_row" "$_left" "$_clipped" "$_hl"
             shellframe_fb_fill  "$_row" "$(( _left + _clen ))" "$(( _width - _clen ))" " " "$_hl"
         else
-            shellframe_fb_print "$_row" "$_left" "$_clipped"
+            shellframe_fb_print "$_row" "$_left" "$_clipped" "$_lbg"
         fi
     done
 }
@@ -212,22 +228,30 @@ shellframe_list_on_mouse() {
     # Only act on press events
     [[ "$_action" != "press" ]] && return 1
 
+    # Account for title row: items start 1 row below the region top
+    local _items_top="$_rtop"
+    [[ -n "${SHELLFRAME_LIST_TITLE:-}" ]] && _items_top=$(( _rtop + 1 ))
+
     # Scroll wheel: move viewport without moving cursor
+    local _step="${SHELLFRAME_SCROLL_MOUSE_STEP:-3}"
     if (( _button == 64 )); then
-        shellframe_scroll_move "$_ctx" up
+        shellframe_scroll_move "$_ctx" up "$_step"
         shellframe_shell_mark_dirty
         return 0
     elif (( _button == 65 )); then
-        shellframe_scroll_move "$_ctx" down
+        shellframe_scroll_move "$_ctx" down "$_step"
         shellframe_shell_mark_dirty
         return 0
     fi
+
+    # Click on title row — ignore
+    (( _mrow < _items_top )) && return 1
 
     # Left/middle/right click: move cursor to clicked item
     if (( _button <= 2 )); then
         local _scroll_top
         shellframe_scroll_top "$_ctx" _scroll_top
-        local _item_idx=$(( _scroll_top + _mrow - _rtop ))
+        local _item_idx=$(( _scroll_top + _mrow - _items_top ))
         local _n=${#SHELLFRAME_LIST_ITEMS[@]}
         if (( _item_idx >= 0 && _item_idx < _n )); then
             shellframe_sel_set "$_ctx" "$_item_idx"

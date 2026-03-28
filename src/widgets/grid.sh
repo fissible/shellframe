@@ -263,7 +263,7 @@ shellframe_grid_render() {
             (( _avail <= 0 )) && continue
             local _hdr_style="${SHELLFRAME_GRID_HEADER_STYLE:-${_bold}${_white}}"
             local _clipped
-            _clipped=$(shellframe_str_clip_ellipsis "$_hdr" "$_hdr" "$_avail")
+            shellframe_str_clip_ellipsis "$_hdr" "$_hdr" "$_avail" _clipped
             shellframe_fb_print "$_top" "$(( _left + _pad_xoff ))" "$_clipped" "${_hdr_bg}${_hdr_style}"
 
             # Separator after this header
@@ -306,8 +306,7 @@ shellframe_grid_render() {
     shellframe_scroll_top "$_ctx" _vscroll_top
 
     local _cursor=0
-    shellframe_sel_cursor "$_ctx" _cursor 2>/dev/null \
-        || _cursor=$(shellframe_sel_cursor "$_ctx")
+    shellframe_sel_cursor "$_ctx" _cursor 2>/dev/null || true
 
     local _r
     for (( _r=0; _r<_data_height; _r++ )); do
@@ -316,11 +315,14 @@ shellframe_grid_render() {
 
         # Determine per-row background: cursor > stripe > grid bg
         local _is_cursor=0
-        (( _ridx == _cursor && ${SHELLFRAME_GRID_FOCUSED:-0} )) && _is_cursor=1
+        (( _ridx == _cursor )) && _is_cursor=1
 
         local _row_bg="$_grid_bg"
-        if (( _is_cursor )); then
+        if (( _is_cursor && ${SHELLFRAME_GRID_FOCUSED:-0} )); then
             _row_bg="${SHELLFRAME_GRID_CURSOR_STYLE:-$_rev}"
+        elif (( _is_cursor )); then
+            # Unfocused cursor — subtle dark-gray highlight
+            _row_bg=$'\033[48;5;236m'
         elif [[ -n "${SHELLFRAME_GRID_STRIPE_BG:-}" ]] && (( _ridx % 2 == 1 )); then
             _row_bg="$SHELLFRAME_GRID_STRIPE_BG"
         fi
@@ -362,7 +364,7 @@ shellframe_grid_render() {
             local _col=$(( _left + _pad_xoff ))
             if (( _tlen > _avail )); then
                 local _clipped
-                _clipped=$(shellframe_str_clip_ellipsis "$_text" "$_text" "$_avail")
+                shellframe_str_clip_ellipsis "$_text" "$_text" "$_avail" _clipped
                 shellframe_fb_print "$_row" "$_col" "$_clipped" "$_row_bg"
             else
                 local _pad=$(( _avail - _tlen ))
@@ -387,17 +389,11 @@ shellframe_grid_render() {
                 esac
             fi
 
-            # Separator after this column.
-            # Cursor row: separator inherits cursor attr.
-            # Non-cursor row: gray separator with row bg.
+            # Separator after this column — always gray, regardless of cursor.
             if (( _vi < _n_vis_seps )); then
                 local _sxoff="${_vis_sep_x[$_vi]}"
                 local _schar="${_vis_sep_char[$_vi]}"
-                if (( _is_cursor )); then
-                    shellframe_fb_put "$_row" "$(( _left + _sxoff ))" "${_row_bg}${_schar}"
-                else
-                    shellframe_fb_put "$_row" "$(( _left + _sxoff ))" "${_row_bg}${_gray}${_schar}"
-                fi
+                shellframe_fb_put "$_row" "$(( _left + _sxoff ))" "${_row_bg}${_gray}${_schar}"
             fi
         done
 
@@ -433,11 +429,13 @@ shellframe_grid_on_key() {
         return 2    # row confirmed
     elif [[ "$_key" == "$_k_down" ]]; then
         shellframe_sel_move "$_ctx" down
-        shellframe_scroll_ensure_row "$_ctx" "$(shellframe_sel_cursor "$_ctx")"
+        local _cur; shellframe_sel_cursor "$_ctx" _cur
+        shellframe_scroll_ensure_row "$_ctx" "$_cur"
         shellframe_shell_mark_dirty; return 0
     elif [[ "$_key" == "$_k_up" ]]; then
         shellframe_sel_move "$_ctx" up
-        shellframe_scroll_ensure_row "$_ctx" "$(shellframe_sel_cursor "$_ctx")"
+        local _cur; shellframe_sel_cursor "$_ctx" _cur
+        shellframe_scroll_ensure_row "$_ctx" "$_cur"
         shellframe_shell_mark_dirty; return 0
     elif [[ "$_key" == "$_k_right" ]]; then
         shellframe_scroll_move "$_ctx" right
@@ -448,12 +446,14 @@ shellframe_grid_on_key() {
     elif [[ "$_key" == "$_k_pgdn" ]]; then
         shellframe_sel_move "$_ctx" page_down "$_vrows"
         shellframe_scroll_move "$_ctx" page_down
-        shellframe_scroll_ensure_row "$_ctx" "$(shellframe_sel_cursor "$_ctx")"
+        local _cur; shellframe_sel_cursor "$_ctx" _cur
+        shellframe_scroll_ensure_row "$_ctx" "$_cur"
         shellframe_shell_mark_dirty; return 0
     elif [[ "$_key" == "$_k_pgup" ]]; then
         shellframe_sel_move "$_ctx" page_up "$_vrows"
         shellframe_scroll_move "$_ctx" page_up
-        shellframe_scroll_ensure_row "$_ctx" "$(shellframe_sel_cursor "$_ctx")"
+        local _cur; shellframe_sel_cursor "$_ctx" _cur
+        shellframe_scroll_ensure_row "$_ctx" "$_cur"
         shellframe_shell_mark_dirty; return 0
     elif [[ "$_key" == "$_k_home" ]]; then
         shellframe_sel_move "$_ctx" home
@@ -475,6 +475,70 @@ shellframe_grid_on_key() {
 
 shellframe_grid_on_focus() {
     SHELLFRAME_GRID_FOCUSED="${1:-0}"
+}
+
+# ── shellframe_grid_on_mouse ──────────────────────────────────────────────────
+#
+# Mouse handler for the grid widget.  Follows the same convention as
+# shellframe_list_on_mouse:
+#   shellframe_grid_on_mouse button action mrow mcol rtop rleft rwidth rheight
+#
+# Left click on a data row → move cursor to that row, mark dirty.
+# Scroll wheel (buttons 64/65) → move viewport.
+# Returns 0 if handled, 1 otherwise.
+
+shellframe_grid_on_mouse() {
+    local _button="$1" _action="$2" _mrow="$3" _mcol="$4"
+    local _rtop="$5"
+    local _ctx="${SHELLFRAME_GRID_CTX:-grid}"
+
+    [[ "$_action" != "press" ]] && return 1
+
+    # Scroll wheel — Shift+scroll → horizontal, plain scroll → vertical
+    local _step="${SHELLFRAME_SCROLL_MOUSE_STEP:-3}"
+    if (( _button == 64 )); then
+        if (( SHELLFRAME_MOUSE_SHIFT )); then
+            shellframe_scroll_move "$_ctx" left "$_step"
+        else
+            shellframe_scroll_move "$_ctx" up "$_step"
+        fi
+        shellframe_shell_mark_dirty; return 0
+    elif (( _button == 65 )); then
+        if (( SHELLFRAME_MOUSE_SHIFT )); then
+            shellframe_scroll_move "$_ctx" right "$_step"
+        else
+            shellframe_scroll_move "$_ctx" down "$_step"
+        fi
+        shellframe_shell_mark_dirty; return 0
+    fi
+
+    # Left/middle/right click: move cursor to the clicked data row
+    (( _button > 2 )) && return 1
+
+    # Account for header rows (label + separator = 2 rows)
+    local _data_top="$_rtop"
+    local _ncols="${SHELLFRAME_GRID_COLS:-0}"
+    local _n_headers=0
+    [[ -n "${SHELLFRAME_GRID_HEADERS+set}" ]] && _n_headers=${#SHELLFRAME_GRID_HEADERS[@]}
+    if (( _ncols > 0 && _n_headers > 0 )); then
+        _data_top=$(( _rtop + 2 ))
+    fi
+
+    # Click above data rows (on header) — ignore
+    (( _mrow < _data_top )) && return 1
+
+    local _vscroll_top=0
+    shellframe_scroll_top "$_ctx" _vscroll_top
+    local _row_idx=$(( _vscroll_top + _mrow - _data_top ))
+    local _nrows="${SHELLFRAME_GRID_ROWS:-0}"
+
+    if (( _row_idx >= 0 && _row_idx < _nrows )); then
+        shellframe_sel_set "$_ctx" "$_row_idx"
+        shellframe_scroll_ensure_row "$_ctx" "$_row_idx"
+        shellframe_shell_mark_dirty
+        return 0
+    fi
+    return 1
 }
 
 # ── shellframe_grid_size ───────────────────────────────────────────────────────

@@ -85,7 +85,7 @@ shellframe_field_render() {
     # Empty + unfocused: show placeholder
     if [[ -z "$_text" && $(( _focused )) -eq 0 && -n "$_placeholder" ]]; then
         local _ph
-        _ph=$(shellframe_str_clip_ellipsis "$_placeholder" "$_placeholder" "$_width")
+        shellframe_str_clip_ellipsis "$_placeholder" "$_placeholder" "$_width" _ph
         shellframe_fb_print "$_top" "$_left" "$_ph" $'\033[2m'
         return 0
     fi

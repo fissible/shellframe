@@ -322,7 +322,7 @@ shellframe_tree_render() {
 
         local _text="${_indent}${_icon}${_label}"
         local _clipped
-        _clipped=$(shellframe_str_clip_ellipsis "$_text" "$_text" "$_width")
+        shellframe_str_clip_ellipsis "$_text" "$_text" "$_width" _clipped
 
         if (( _vi == _vcursor )); then
             local _clen=${#_clipped}
