@@ -258,7 +258,7 @@ shellframe_cmenu_on_mouse() {
     local _rtop="$5" _rleft="$6" _rwidth="$7" _rheight="$8"
     local _ctx="${SHELLFRAME_CMENU_CTX:-cmenu}"
 
-    [[ "$_action" != "press" ]] && return 1
+    [[ "$_action" != "press" ]] && return 0
 
     # Compute actual menu bounds (menu may be smaller than the registered region)
     local _mtop=0 _mleft=0 _mw=0 _mh=0

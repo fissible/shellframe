@@ -188,7 +188,7 @@ assert_eq "0" "$_rc"
 ptyunit_test_begin "cmenu_on_mouse: release events ignored"
 _reset_cmenu
 shellframe_cmenu_on_mouse 0 "release" 6 11 1 1 80 24; _rc=$?
-assert_eq "1" "$_rc"
+assert_eq "0" "$_rc"
 
 # ── shellframe_cmenu_on_focus ───────────────────────────────────────────────
 
