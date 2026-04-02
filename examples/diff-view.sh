@@ -37,7 +37,9 @@ shellframe_raw_enter
 cols=$(tput cols 2>/dev/null); cols=${cols:-80}
 lines=$(tput lines 2>/dev/null); lines=${lines:-24}
 
+shellframe_fb_frame_start "$lines" "$cols"
 shellframe_diff_view_render 1 1 "$cols" "$(( lines - 1 ))"
+shellframe_screen_flush
 
 key=""
 shellframe_read_key key
