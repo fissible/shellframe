@@ -46,6 +46,18 @@
 #
 #   shellframe_ac_dismiss
 #     Hide the popup — sets _SHELLFRAME_AC_ACTIVE=0, clears matches/prefix.
+#
+#   _shellframe_ac_accept match
+#     Replace the word-under-cursor with match in the attached context.
+#     Sets SHELLFRAME_AC_RESULT and calls shellframe_ac_dismiss.
+#
+#   shellframe_ac_on_key key
+#     Key dispatcher.  When active, handles Enter/Tab/Esc/Up/Down.
+#     Returns 0 (consumed), 1 (pass-through).
+#
+#   shellframe_ac_on_key_after
+#     Call AFTER the attached field/editor handles a printable key (auto trigger).
+#     Re-runs _shellframe_ac_update and marks the shell dirty.
 
 # ── Public globals ─────────────────────────────────────────────────────────────
 
@@ -185,4 +197,138 @@ _shellframe_ac_update() {
     SHELLFRAME_CMENU_CTX="ac_popup"
     SHELLFRAME_CMENU_MAX_HEIGHT="${SHELLFRAME_AC_MAX_HEIGHT:-8}"
     shellframe_cmenu_init "ac_popup"
+}
+
+# ── _shellframe_ac_accept ─────────────────────────────────────────────────────
+
+# Replace the word-under-cursor in the attached context with $match.
+#
+# For "field" mode: uses shellframe_cur_text/pos to rebuild the text around
+#   the current prefix, then calls shellframe_cur_set with the new text and pos.
+# For "editor" mode: reads the line/col internals directly and rewrites the
+#   named globals _SHELLFRAME_ED_${ctx}_LINE_${row} and _SHELLFRAME_ED_${ctx}_COL.
+#
+# Sets SHELLFRAME_AC_RESULT="$match" and calls shellframe_ac_dismiss.
+#
+# Usage: _shellframe_ac_accept match
+_shellframe_ac_accept() {
+    local _match="$1"
+    local _ctx="$_SHELLFRAME_AC_CTX"
+    local _mode="$_SHELLFRAME_AC_MODE"
+    local _prefix_len="${#_SHELLFRAME_AC_PREFIX}"
+
+    SHELLFRAME_AC_RESULT="$_match"
+
+    if [[ "$_mode" == "field" ]]; then
+        local _text="" _col=0
+        shellframe_cur_text "$_ctx" _text
+        shellframe_cur_pos  "$_ctx" _col
+        local _start=$(( _col - _prefix_len ))
+        (( _start < 0 )) && _start=0
+        local _new_text="${_text:0:$_start}${_match}${_text:$_col}"
+        local _new_pos=$(( _start + ${#_match} ))
+        shellframe_cur_set "$_ctx" "$_new_text" "$_new_pos"
+    else
+        # editor mode
+        local _row
+        _row="$(shellframe_editor_row "$_ctx")"
+        local _col_var="_SHELLFRAME_ED_${_ctx}_COL"
+        local _col="${!_col_var:-0}"
+        local _line_var="_SHELLFRAME_ED_${_ctx}_LINE_${_row}"
+        local _line="${!_line_var:-}"
+        local _start=$(( _col - _prefix_len ))
+        (( _start < 0 )) && _start=0
+        local _new_line="${_line:0:$_start}${_match}${_line:$_col}"
+        local _new_col=$(( _start + ${#_match} ))
+        printf -v "$_line_var" '%s' "$_new_line"
+        printf -v "$_col_var"  '%d' "$_new_col"
+    fi
+
+    shellframe_ac_dismiss
+}
+
+# ── shellframe_ac_on_key ──────────────────────────────────────────────────────
+
+# Dispatch a key event for the autocomplete overlay.
+#
+# When popup is active (_SHELLFRAME_AC_ACTIVE==1):
+#   Enter ($'\r'/$'\n') or Tab ($'\t') — accept current selection → return 0
+#   Esc ($'\033')                       — dismiss popup            → return 0
+#   Up/Down                             — delegate to cmenu_on_key → return 0
+#   Any other key                       — dismiss, return 1 (pass-through)
+#
+# When idle:
+#   Tab + trigger=="tab" — run _shellframe_ac_update; if single match,
+#                          auto-complete it; return 0 if active/accepted, 1 otherwise
+#   All other keys       — return 1 (pass-through)
+#
+# Usage: shellframe_ac_on_key key
+shellframe_ac_on_key() {
+    local _key="$1"
+    local _k_up="${SHELLFRAME_KEY_UP:-$'\033[A'}"
+    local _k_down="${SHELLFRAME_KEY_DOWN:-$'\033[B'}"
+
+    if (( _SHELLFRAME_AC_ACTIVE )); then
+        # Enter or Tab — accept
+        if [[ "$_key" == $'\r' || "$_key" == $'\n' || "$_key" == $'\t' ]]; then
+            local _cur=0
+            shellframe_sel_cursor "ac_popup" _cur 2>/dev/null || _cur=0
+            local _match="${_SHELLFRAME_AC_MATCHES[$_cur]:-}"
+            _shellframe_ac_accept "$_match"
+            shellframe_shell_mark_dirty 2>/dev/null || true
+            return 0
+        fi
+
+        # Esc — dismiss
+        if [[ "$_key" == $'\033' ]]; then
+            shellframe_ac_dismiss
+            shellframe_shell_mark_dirty 2>/dev/null || true
+            return 0
+        fi
+
+        # Up/Down — navigate
+        if [[ "$_key" == "$_k_up" || "$_key" == "$_k_down" ]]; then
+            shellframe_cmenu_on_key "$_key"
+            shellframe_shell_mark_dirty 2>/dev/null || true
+            return 0
+        fi
+
+        # Any other key — dismiss and pass through
+        shellframe_ac_dismiss
+        return 1
+    fi
+
+    # Idle — only respond to Tab in tab-trigger mode
+    if [[ "$_key" == $'\t' && "${SHELLFRAME_AC_TRIGGER:-auto}" == "tab" ]]; then
+        _shellframe_ac_update
+        if (( _SHELLFRAME_AC_ACTIVE )); then
+            shellframe_shell_mark_dirty 2>/dev/null || true
+            return 0
+        fi
+        # Single match after update → auto-complete without popup
+        local _n="${#_SHELLFRAME_AC_MATCHES[@]}"
+        if (( _n == 1 )); then
+            _shellframe_ac_accept "${_SHELLFRAME_AC_MATCHES[0]}"
+            shellframe_shell_mark_dirty 2>/dev/null || true
+            return 0
+        fi
+        return 1
+    fi
+
+    return 1
+}
+
+# ── shellframe_ac_on_key_after ────────────────────────────────────────────────
+
+# Called AFTER the attached field/editor processes a printable key (auto-trigger
+# mode).  Re-evaluates the current prefix against the provider and marks the
+# shell dirty so the next draw loop picks up the popup state change.
+#
+# No-op if trigger != "auto" or no context is attached.
+shellframe_ac_on_key_after() {
+    if [[ "${SHELLFRAME_AC_TRIGGER:-auto}" != "auto" || -z "$_SHELLFRAME_AC_CTX" ]]; then
+        return 0
+    fi
+    _shellframe_ac_update
+    shellframe_shell_mark_dirty 2>/dev/null || true
 }

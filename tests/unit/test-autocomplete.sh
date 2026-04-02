@@ -305,4 +305,80 @@ SHELLFRAME_AC_TRIGGER="auto"
 _shellframe_ac_update
 assert_eq "1" "$_SHELLFRAME_AC_ACTIVE"
 
+# ── shellframe_ac_on_key ─────────────────────────────────────────────────────
+
+ptyunit_test_begin "ac_on_key: idle returns 1 for unrelated key"
+_reset_ac
+shellframe_cur_init "ok1" "hello"
+shellframe_ac_attach "ok1" "field"
+SHELLFRAME_AC_PROVIDER="_test_provider"
+shellframe_ac_on_key "x"
+assert_eq "1" "$?"
+
+ptyunit_test_begin "ac_on_key: Tab triggers popup in tab mode"
+_reset_ac
+shellframe_cur_init "ok2" "us"
+shellframe_ac_attach "ok2" "field"
+SHELLFRAME_AC_PROVIDER="_test_provider"
+SHELLFRAME_AC_TRIGGER="tab"
+shellframe_ac_on_key $'\t'
+assert_eq "0" "$?"
+assert_eq "1" "$_SHELLFRAME_AC_ACTIVE"
+SHELLFRAME_AC_TRIGGER="auto"
+
+ptyunit_test_begin "ac_on_key: Tab auto-completes single match"
+_reset_ac
+shellframe_cur_init "ok3" "prod"
+shellframe_ac_attach "ok3" "field"
+SHELLFRAME_AC_PROVIDER="_test_provider"
+SHELLFRAME_AC_TRIGGER="tab"
+shellframe_ac_on_key $'\t'
+assert_eq "0" "$?"
+_ok3_text=""
+shellframe_cur_text "ok3" _ok3_text
+assert_eq "products" "$_ok3_text"
+assert_eq "0" "$_SHELLFRAME_AC_ACTIVE"
+SHELLFRAME_AC_TRIGGER="auto"
+
+ptyunit_test_begin "ac_on_key: Enter accepts selected suggestion"
+_reset_ac
+shellframe_cur_init "ok4" "us"
+shellframe_ac_attach "ok4" "field"
+SHELLFRAME_AC_PROVIDER="_test_provider"
+SHELLFRAME_AC_TRIGGER="tab"
+shellframe_ac_on_key $'\t'
+shellframe_ac_on_key $'\r'
+assert_eq "0" "$?"
+_ok4_text=""
+shellframe_cur_text "ok4" _ok4_text
+assert_eq "users" "$_ok4_text"
+assert_eq "0" "$_SHELLFRAME_AC_ACTIVE"
+SHELLFRAME_AC_TRIGGER="auto"
+
+ptyunit_test_begin "ac_on_key: Esc dismisses popup"
+_reset_ac
+shellframe_cur_init "ok5" "us"
+shellframe_ac_attach "ok5" "field"
+SHELLFRAME_AC_PROVIDER="_test_provider"
+SHELLFRAME_AC_TRIGGER="tab"
+shellframe_ac_on_key $'\t'
+assert_eq "1" "$_SHELLFRAME_AC_ACTIVE"
+shellframe_ac_on_key $'\033'
+assert_eq "0" "$?"
+assert_eq "0" "$_SHELLFRAME_AC_ACTIVE"
+SHELLFRAME_AC_TRIGGER="auto"
+
+ptyunit_test_begin "ac_on_key: Down moves selection in active popup"
+_reset_ac
+shellframe_cur_init "ok6" "us"
+shellframe_ac_attach "ok6" "field"
+SHELLFRAME_AC_PROVIDER="_test_provider"
+SHELLFRAME_AC_TRIGGER="tab"
+shellframe_ac_on_key $'\t'
+shellframe_ac_on_key "$SHELLFRAME_KEY_DOWN"
+_cur=0
+shellframe_sel_cursor "ac_popup" _cur
+assert_eq "1" "$_cur"
+SHELLFRAME_AC_TRIGGER="auto"
+
 ptyunit_test_summary
