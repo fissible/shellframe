@@ -9,7 +9,10 @@ source "$SHELLFRAME_DIR/src/cursor.sh"
 source "$SHELLFRAME_DIR/src/clip.sh"
 source "$SHELLFRAME_DIR/src/draw.sh"
 source "$SHELLFRAME_DIR/src/input.sh"
+source "$SHELLFRAME_DIR/src/selection.sh"
+source "$SHELLFRAME_DIR/src/scroll.sh"
 source "$SHELLFRAME_DIR/src/widgets/editor.sh"
+source "$SHELLFRAME_DIR/src/widgets/context-menu.sh"
 source "$SHELLFRAME_DIR/src/widgets/autocomplete.sh"
 source "$PTYUNIT_HOME/assert.sh"
 
@@ -242,5 +245,64 @@ shellframe_ac_attach "pfspecial" "field"
 _pfx=""
 _shellframe_ac_prefix _pfx
 assert_eq "us" "$_pfx" "stops at @ boundary"
+
+# ── _shellframe_ac_update ─────────────────────────────────────────────────────
+
+_test_provider() {
+    local _prefix="$1" _out="$2"
+    local _all=("users" "user_roles" "products" "profiles")
+    local _matches=()
+    local _i
+    for _i in "${_all[@]}"; do
+        case "$_i" in "${_prefix}"*) _matches+=("$_i") ;; esac
+    done
+    eval "$_out=(\"\${_matches[@]+\"\${_matches[@]}\"}\")"
+}
+
+ptyunit_test_begin "ac_update: populates matches from provider"
+_reset_ac
+shellframe_cur_init "upd1" "us"
+shellframe_ac_attach "upd1" "field"
+SHELLFRAME_AC_PROVIDER="_test_provider"
+_shellframe_ac_update
+assert_eq "2" "${#_SHELLFRAME_AC_MATCHES[@]}"
+assert_eq "users" "${_SHELLFRAME_AC_MATCHES[0]}"
+assert_eq "user_roles" "${_SHELLFRAME_AC_MATCHES[1]}"
+
+ptyunit_test_begin "ac_update: activates popup when matches > 1"
+_reset_ac
+shellframe_cur_init "upd2" "us"
+shellframe_ac_attach "upd2" "field"
+SHELLFRAME_AC_PROVIDER="_test_provider"
+_shellframe_ac_update
+assert_eq "1" "$_SHELLFRAME_AC_ACTIVE"
+
+ptyunit_test_begin "ac_update: deactivates when 0 matches"
+_reset_ac
+shellframe_cur_init "upd3" "xyz"
+shellframe_ac_attach "upd3" "field"
+SHELLFRAME_AC_PROVIDER="_test_provider"
+_shellframe_ac_update
+assert_eq "0" "$_SHELLFRAME_AC_ACTIVE"
+assert_eq "0" "${#_SHELLFRAME_AC_MATCHES[@]}"
+
+ptyunit_test_begin "ac_update: single match does not open popup (tab trigger)"
+_reset_ac
+shellframe_cur_init "upd4" "prod"
+shellframe_ac_attach "upd4" "field"
+SHELLFRAME_AC_PROVIDER="_test_provider"
+SHELLFRAME_AC_TRIGGER="tab"
+_shellframe_ac_update
+assert_eq "0" "$_SHELLFRAME_AC_ACTIVE"
+SHELLFRAME_AC_TRIGGER="auto"
+
+ptyunit_test_begin "ac_update: single match opens popup in auto mode"
+_reset_ac
+shellframe_cur_init "upd5" "prod"
+shellframe_ac_attach "upd5" "field"
+SHELLFRAME_AC_PROVIDER="_test_provider"
+SHELLFRAME_AC_TRIGGER="auto"
+_shellframe_ac_update
+assert_eq "1" "$_SHELLFRAME_AC_ACTIVE"
 
 ptyunit_test_summary

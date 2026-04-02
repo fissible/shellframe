@@ -139,3 +139,50 @@ shellframe_ac_dismiss() {
     _SHELLFRAME_AC_MATCHES=()
     _SHELLFRAME_AC_PREFIX=""
 }
+
+# ── _shellframe_ac_update ─────────────────────────────────────────────────────
+
+# Call the provider with the current prefix and manage popup state.
+#
+# Steps:
+#   1. Extract the current word-under-cursor via _shellframe_ac_prefix.
+#   2. Store result in _SHELLFRAME_AC_PREFIX.
+#   3. If provider is set AND prefix is non-empty, invoke the provider:
+#        "$SHELLFRAME_AC_PROVIDER" "$_prefix" "_SHELLFRAME_AC_MATCHES"
+#   4. 0 matches  → deactivate (_SHELLFRAME_AC_ACTIVE=0), return.
+#   5. 1 match AND SHELLFRAME_AC_TRIGGER=="tab" → deactivate, return
+#        (Tab path will auto-complete without showing a popup).
+#   6. Otherwise → activate popup: set _SHELLFRAME_AC_ACTIVE=1, copy matches
+#        to SHELLFRAME_CMENU_ITEMS, set SHELLFRAME_CMENU_CTX="ac_popup",
+#        set SHELLFRAME_CMENU_MAX_HEIGHT from SHELLFRAME_AC_MAX_HEIGHT, and
+#        call shellframe_cmenu_init "ac_popup".
+_shellframe_ac_update() {
+    local _cur_prefix=""
+    _shellframe_ac_prefix _cur_prefix
+    _SHELLFRAME_AC_PREFIX="$_cur_prefix"
+    local _prefix="$_cur_prefix"
+
+    _SHELLFRAME_AC_MATCHES=()
+
+    if [[ -n "$SHELLFRAME_AC_PROVIDER" && -n "$_prefix" ]]; then
+        "$SHELLFRAME_AC_PROVIDER" "$_prefix" "_SHELLFRAME_AC_MATCHES"
+    fi
+
+    local _n="${#_SHELLFRAME_AC_MATCHES[@]}"
+
+    if (( _n == 0 )); then
+        _SHELLFRAME_AC_ACTIVE=0
+        return
+    fi
+
+    if (( _n == 1 )) && [[ "${SHELLFRAME_AC_TRIGGER:-auto}" == "tab" ]]; then
+        _SHELLFRAME_AC_ACTIVE=0
+        return
+    fi
+
+    _SHELLFRAME_AC_ACTIVE=1
+    SHELLFRAME_CMENU_ITEMS=("${_SHELLFRAME_AC_MATCHES[@]+"${_SHELLFRAME_AC_MATCHES[@]}"}")
+    SHELLFRAME_CMENU_CTX="ac_popup"
+    SHELLFRAME_CMENU_MAX_HEIGHT="${SHELLFRAME_AC_MAX_HEIGHT:-8}"
+    shellframe_cmenu_init "ac_popup"
+}
