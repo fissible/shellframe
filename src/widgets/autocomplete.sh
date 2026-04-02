@@ -318,6 +318,41 @@ shellframe_ac_on_key() {
     return 1
 }
 
+# ── shellframe_ac_render ─────────────────────────────────────────────────────
+
+# Render the autocomplete popup by delegating to shellframe_cmenu_render.
+#
+# If the popup is inactive (_SHELLFRAME_AC_ACTIVE==0) or there are no matches,
+# returns immediately without touching the framebuffer.
+#
+# Positions the menu one row below the cursor and at the cursor column.
+# All SHELLFRAME_CMENU_* globals are set to reflect the ac_popup context before
+# the render call — callers must not rely on prior cmenu state after this.
+#
+# Usage: shellframe_ac_render top left width height cursor_row cursor_col
+shellframe_ac_render() {
+    local _top="$1" _left="$2" _width="$3" _height="$4"
+    local _crow="$5" _ccol="$6"
+
+    # Guard: not active or no matches
+    (( _SHELLFRAME_AC_ACTIVE == 0 )) && return 0
+    (( ${#_SHELLFRAME_AC_MATCHES[@]} == 0 )) && return 0
+
+    # Position popup one row below cursor
+    SHELLFRAME_CMENU_ANCHOR_ROW=$(( _crow + 1 ))
+    SHELLFRAME_CMENU_ANCHOR_COL="$_ccol"
+
+    # Populate cmenu state from ac state
+    SHELLFRAME_CMENU_ITEMS=("${_SHELLFRAME_AC_MATCHES[@]+"${_SHELLFRAME_AC_MATCHES[@]}"}")
+    SHELLFRAME_CMENU_CTX="ac_popup"
+    SHELLFRAME_CMENU_FOCUSED=1
+    SHELLFRAME_CMENU_STYLE="single"
+    SHELLFRAME_CMENU_MAX_HEIGHT="${SHELLFRAME_AC_MAX_HEIGHT:-8}"
+    SHELLFRAME_CMENU_BG=""
+
+    shellframe_cmenu_render "$_top" "$_left" "$_width" "$_height"
+}
+
 # ── shellframe_ac_on_key_after ────────────────────────────────────────────────
 
 # Called AFTER the attached field/editor processes a printable key (auto-trigger

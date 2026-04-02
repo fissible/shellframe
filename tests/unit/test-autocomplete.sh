@@ -11,6 +11,8 @@ source "$SHELLFRAME_DIR/src/draw.sh"
 source "$SHELLFRAME_DIR/src/input.sh"
 source "$SHELLFRAME_DIR/src/selection.sh"
 source "$SHELLFRAME_DIR/src/scroll.sh"
+source "$SHELLFRAME_DIR/src/screen.sh"
+source "$SHELLFRAME_DIR/src/panel.sh"
 source "$SHELLFRAME_DIR/src/widgets/editor.sh"
 source "$SHELLFRAME_DIR/src/widgets/context-menu.sh"
 source "$SHELLFRAME_DIR/src/widgets/autocomplete.sh"
@@ -380,5 +382,44 @@ _cur=0
 shellframe_sel_cursor "ac_popup" _cur
 assert_eq "1" "$_cur"
 SHELLFRAME_AC_TRIGGER="auto"
+
+# ── shellframe_ac_render ─────────────────────────────────────────────────────
+
+ptyunit_test_begin "ac_render: inactive produces no framebuffer output"
+_reset_ac
+shellframe_cur_init "rn1" "hello"
+shellframe_ac_attach "rn1" "field"
+# _SHELLFRAME_AC_ACTIVE is already 0 from _reset_ac / attach
+_SF_ROW_PREV=()
+shellframe_fb_frame_start 24 80
+_f=$(mktemp)
+exec 3>"$_f"
+shellframe_ac_render 1 1 80 24 5 10
+shellframe_screen_flush
+exec 3>&- 2>/dev/null || true
+_rn1_content=$(cat "$_f")
+rm -f "$_f"
+assert_eq "" "$_rn1_content" "inactive: no output expected"
+
+ptyunit_test_begin "ac_render: active renders popup with matches"
+_reset_ac
+shellframe_cur_init "rn2" "us"
+shellframe_ac_attach "rn2" "field"
+SHELLFRAME_AC_PROVIDER="_test_provider"
+SHELLFRAME_AC_TRIGGER="tab"
+shellframe_ac_on_key $'\t'
+assert_eq "1" "$_SHELLFRAME_AC_ACTIVE"
+_SF_ROW_PREV=()
+shellframe_fb_frame_start 24 80
+_f=$(mktemp)
+exec 3>"$_f"
+shellframe_ac_render 1 1 80 24 5 10
+shellframe_screen_flush
+exec 3>&- 2>/dev/null || true
+_rn2_content=$(sed 's/\033\[[0-9;]*[A-Za-z]//g' "$_f")
+rm -f "$_f"
+SHELLFRAME_AC_TRIGGER="auto"
+assert_contains "$_rn2_content" "users" "popup should contain 'users'"
+assert_contains "$_rn2_content" "user_roles" "popup should contain 'user_roles'"
 
 ptyunit_test_summary
