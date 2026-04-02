@@ -153,4 +153,64 @@ shellframe_sheet_draw 10 80
 assert_contains "${_SF_ROW_CURR[1]:-}" $'\033[2m' "row 1 contains dim sequence"
 assert_contains "${_SF_ROW_CURR[1]:-}" $'\033[22m' "row 1 ends dim sequence"
 
+# ── Screen transitions and __POP__ ────────────────────────────────────────────
+
+ptyunit_test_begin "sheet_draw: SHEET_NEXT=STEP2 transitions to new screen"
+_reset_sheet
+shellframe_sheet_push "_tst" "FORM"
+_SHELLFRAME_SHEET_NEXT="STEP2"
+_tst_STEP2_render() { :; }
+shellframe_sheet_draw 10 80
+assert_eq "STEP2" "$_SHELLFRAME_SHEET_SCREEN" "screen updated to STEP2"
+assert_eq "" "$_SHELLFRAME_SHEET_NEXT" "NEXT cleared"
+
+ptyunit_test_begin "sheet_draw: transition resets focus state"
+_reset_sheet
+shellframe_sheet_push "_tst" "FORM"
+_SHELLFRAME_SHEET_FOCUS_IDX=2
+_SHELLFRAME_SHEET_NEXT="STEP2"
+_tst_STEP2_render() { :; }
+shellframe_sheet_draw 10 80
+assert_eq "0" "$_SHELLFRAME_SHEET_FOCUS_IDX" "focus idx reset to 0 after transition"
+
+ptyunit_test_begin "sheet_draw: SHEET_NEXT=__POP__ clears ACTIVE"
+_reset_sheet
+shellframe_sheet_push "_tst" "FORM"
+shellframe_sheet_pop
+shellframe_sheet_draw 10 80
+assert_eq "0" "$_SHELLFRAME_SHEET_ACTIVE" "ACTIVE=0 after pop"
+
+ptyunit_test_begin "sheet_draw: SHEET_NEXT=__POP__ clears prefix and screen"
+_reset_sheet
+shellframe_sheet_push "_tst" "FORM"
+shellframe_sheet_pop
+shellframe_sheet_draw 10 80
+assert_eq "" "$_SHELLFRAME_SHEET_PREFIX" "prefix cleared"
+assert_eq "" "$_SHELLFRAME_SHEET_SCREEN" "screen cleared"
+
+ptyunit_test_begin "sheet_draw: SHEET_NEXT=__POP__ marks parent dirty"
+_reset_sheet
+shellframe_sheet_push "_tst" "FORM"
+shellframe_sheet_pop
+_SHELLFRAME_SHELL_DIRTY=0
+shellframe_sheet_draw 10 80
+assert_eq "1" "$_SHELLFRAME_SHELL_DIRTY" "parent marked dirty after pop"
+
+ptyunit_test_begin "sheet_draw: SHEET_NEXT=__POP__ restores parent regions"
+_reset_sheet
+_SHELLFRAME_SHELL_REGIONS=("parent:1:1:80:10:focus")
+shellframe_sheet_push "_tst" "FORM"
+shellframe_sheet_pop
+shellframe_sheet_draw 10 80
+assert_eq "parent:1:1:80:10:focus" "${_SHELLFRAME_SHELL_REGIONS[0]}" "parent regions intact after pop"
+
+ptyunit_test_begin "sheet_draw: explicit height is used when set by render hook"
+_reset_sheet
+_tst_TALL_render() { SHELLFRAME_SHEET_HEIGHT=6; }
+shellframe_sheet_push "_tst" "TALL"
+SHELLFRAME_SHEET_HEIGHT=0
+shellframe_sheet_draw 10 80
+# Verify frozen rows below sheet boundary got written (rows 8-10 for height=6, top=2)
+assert_contains "${_SF_ROW_CURR[8]:-}" $'\033[2m' "row below sheet has dim wrapper"
+
 ptyunit_test_summary
