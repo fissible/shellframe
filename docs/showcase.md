@@ -512,6 +512,7 @@ _my_provider() {
     local _prefix="$1" _out="$2"
     local _items=("users" "user_roles" "products")
     local _matches=()
+    local _i
     for _i in "${_items[@]}"; do
         case "$_i" in "${_prefix}"*) _matches+=("$_i") ;; esac
     done

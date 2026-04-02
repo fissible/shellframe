@@ -39,17 +39,8 @@
 #   shellframe_ac_detach
 #     Detach and clear all state.
 #
-#   _shellframe_ac_prefix out_var
-#     Extract the word-under-cursor from the attached context.
-#     Word characters: [a-zA-Z0-9_.\-]
-#     Sets out_var to the extracted prefix (may be empty).
-#
 #   shellframe_ac_dismiss
 #     Hide the popup — sets _SHELLFRAME_AC_ACTIVE=0, clears matches/prefix.
-#
-#   _shellframe_ac_accept match
-#     Replace the word-under-cursor with match in the attached context.
-#     Sets SHELLFRAME_AC_RESULT and calls shellframe_ac_dismiss.
 #
 #   shellframe_ac_on_key key
 #     Key dispatcher.  When active, handles Enter/Tab/Esc/Up/Down.
@@ -58,6 +49,23 @@
 #   shellframe_ac_on_key_after
 #     Call AFTER the attached field/editor handles a printable key (auto trigger).
 #     Re-runs _shellframe_ac_update and marks the shell dirty.
+#
+#   shellframe_ac_render top left width height cursor_row cursor_col
+#     Render the autocomplete popup via cmenu delegation.
+#
+# ── Internal API ──────────────────────────────────────────────────────────────
+#
+#   _shellframe_ac_prefix out_var
+#     Extract the word-under-cursor from the attached context.
+#     Word characters: [a-zA-Z0-9_.\-]
+#     Sets out_var to the extracted prefix (may be empty).
+#
+#   _shellframe_ac_update
+#     Call provider with current prefix and manage popup state.
+#
+#   _shellframe_ac_accept match
+#     Replace the word-under-cursor with match in the attached context.
+#     Sets SHELLFRAME_AC_RESULT and calls shellframe_ac_dismiss.
 
 # ── Public globals ─────────────────────────────────────────────────────────────
 
@@ -234,7 +242,7 @@ _shellframe_ac_accept() {
         _row="$(shellframe_editor_row "$_ctx")"
         local _col_var="_SHELLFRAME_ED_${_ctx}_COL"
         local _col="${!_col_var:-0}"
-        local _line_var="_SHELLFRAME_ED_${_ctx}_LINE_${_row}"
+        local _line_var="_SHELLFRAME_ED_${_ctx}_L${_row}"
         local _line="${!_line_var:-}"
         local _start=$(( _col - _prefix_len ))
         (( _start < 0 )) && _start=0

@@ -370,6 +370,25 @@ assert_eq "0" "$?"
 assert_eq "0" "$_SHELLFRAME_AC_ACTIVE"
 SHELLFRAME_AC_TRIGGER="auto"
 
+ptyunit_test_begin "ac_on_key: Enter accepts in editor mode (writes to correct line var)"
+_reset_ac
+SHELLFRAME_EDITOR_CTX="eok"
+SHELLFRAME_EDITOR_LINES=()
+shellframe_editor_init "eok" 10
+shellframe_editor_set_text "eok" "SELECT * FROM us"
+# Move cursor to end of line
+shellframe_editor_on_key $'\033[F'
+shellframe_ac_attach "eok" "editor"
+SHELLFRAME_AC_PROVIDER="_test_provider"
+SHELLFRAME_AC_TRIGGER="tab"
+shellframe_ac_on_key $'\t'
+assert_eq "1" "$_SHELLFRAME_AC_ACTIVE" "popup should be active with 2 matches"
+shellframe_ac_on_key $'\r'
+assert_eq "0" "$_SHELLFRAME_AC_ACTIVE" "popup dismissed after accept"
+_eok_line="$(shellframe_editor_line "eok" 0)"
+assert_eq "SELECT * FROM users" "$_eok_line" "editor line updated with completion"
+SHELLFRAME_AC_TRIGGER="auto"
+
 ptyunit_test_begin "ac_on_key: Down moves selection in active popup"
 _reset_ac
 shellframe_cur_init "ok6" "us"
@@ -382,6 +401,35 @@ _cur=0
 shellframe_sel_cursor "ac_popup" _cur
 assert_eq "1" "$_cur"
 SHELLFRAME_AC_TRIGGER="auto"
+
+# ── shellframe_ac_on_key_after ────────────────────────────────────────────────
+
+ptyunit_test_begin "ac_on_key_after: auto mode re-filters after char change"
+_reset_ac
+shellframe_cur_init "oka1" "us"
+shellframe_ac_attach "oka1" "field"
+SHELLFRAME_AC_PROVIDER="_test_provider"
+SHELLFRAME_AC_TRIGGER="auto"
+shellframe_ac_on_key_after
+assert_eq "1" "$_SHELLFRAME_AC_ACTIVE" "should activate with 2 matches"
+assert_eq "2" "${#_SHELLFRAME_AC_MATCHES[@]}"
+
+ptyunit_test_begin "ac_on_key_after: no-op when trigger is not auto"
+_reset_ac
+shellframe_cur_init "oka2" "us"
+shellframe_ac_attach "oka2" "field"
+SHELLFRAME_AC_PROVIDER="_test_provider"
+SHELLFRAME_AC_TRIGGER="tab"
+shellframe_ac_on_key_after
+assert_eq "0" "$_SHELLFRAME_AC_ACTIVE" "should not activate in tab mode"
+SHELLFRAME_AC_TRIGGER="auto"
+
+ptyunit_test_begin "ac_on_key_after: no-op when no context attached"
+_reset_ac
+SHELLFRAME_AC_PROVIDER="_test_provider"
+SHELLFRAME_AC_TRIGGER="auto"
+shellframe_ac_on_key_after
+assert_eq "0" "$_SHELLFRAME_AC_ACTIVE" "should not activate without context"
 
 # ── shellframe_ac_render ─────────────────────────────────────────────────────
 
