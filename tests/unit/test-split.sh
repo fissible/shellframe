@@ -142,7 +142,7 @@ assert_eq "3" "${#_SPLIT_REGION_CALLS[@]}" "three regions registered"
 ptyunit_test_begin "split_render: none border is no-op — no framebuffer output"
 shellframe_split_init "sr1" "v" 2 "0:0"
 shellframe_split_set_border "sr1" "none"
-_SF_FRAME_PREV=(); shellframe_fb_frame_start 10 40
+_SF_ROW_PREV=(); shellframe_fb_frame_start 10 40
 _out=$(mktemp)
 exec 3>"$_out"
 shellframe_split_render "sr1" 1 1 40 10
@@ -155,27 +155,27 @@ rm -f "$_out"
 
 ptyunit_test_begin "split_render: 2v single border — separator character in output"
 shellframe_split_init "sr2" "v" 2 "0:0"
-_SF_FRAME_PREV=(); shellframe_fb_frame_start 5 20
+_SF_ROW_PREV=(); shellframe_fb_frame_start 5 20
 _out=$(mktemp)
 exec 3>"$_out"
 shellframe_split_render "sr2" 1 1 20 5
 shellframe_screen_flush
 exec 3>&-
 exec 3>/dev/null
-_content=$(tr -d '\033' < "$_out" | sed 's/\[[0-9;]*[A-Za-z]//g')
+_content=$(sed $'s/\033\[[0-9;]*[A-Za-z]//g' < "$_out")
 assert_contains "$_content" "│" "vertical separator character present"
 rm -f "$_out"
 
 ptyunit_test_begin "split_render: 2h single border — horizontal separator in output"
 shellframe_split_init "sr3" "h" 2 "0:0"
-_SF_FRAME_PREV=(); shellframe_fb_frame_start 10 20
+_SF_ROW_PREV=(); shellframe_fb_frame_start 10 20
 _out=$(mktemp)
 exec 3>"$_out"
 shellframe_split_render "sr3" 1 1 20 10
 shellframe_screen_flush
 exec 3>&-
 exec 3>/dev/null
-_content=$(tr -d '\033' < "$_out" | sed 's/\[[0-9;]*[A-Za-z]//g')
+_content=$(sed $'s/\033\[[0-9;]*[A-Za-z]//g' < "$_out")
 assert_contains "$_content" "─" "horizontal separator character present"
 rm -f "$_out"
 

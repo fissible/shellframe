@@ -125,12 +125,12 @@ SHELLFRAME_TEXT_RENDERED=""
 SHELLFRAME_TEXT_ALIGN="left"
 SHELLFRAME_TEXT_WRAP=0
 _out=$(mktemp)
-_SF_FRAME_PREV=(); shellframe_fb_frame_start 5 40
+_SF_ROW_PREV=(); shellframe_fb_frame_start 5 40
 exec 3>"$_out"
 shellframe_text_render 1 1 40 5
 shellframe_screen_flush
 exec 3>&-
-_content=$(tr -d '\033' < "$_out" | sed 's/\[[0-9;]*[A-Za-z]//g')
+_content=$(sed $'s/\033\[[0-9;]*[A-Za-z]//g' < "$_out")
 assert_contains "$_content" "Hello"
 assert_contains "$_content" "world"
 rm -f "$_out"
@@ -141,12 +141,12 @@ SHELLFRAME_TEXT_RENDERED=""
 SHELLFRAME_TEXT_ALIGN="center"
 SHELLFRAME_TEXT_WRAP=0
 _out=$(mktemp)
-_SF_FRAME_PREV=(); shellframe_fb_frame_start 3 30
+_SF_ROW_PREV=(); shellframe_fb_frame_start 3 30
 exec 3>"$_out"
 shellframe_text_render 1 1 30 3
 shellframe_screen_flush
 exec 3>&-
-_content=$(tr -d '\033' < "$_out" | sed 's/\[[0-9;]*[A-Za-z]//g')
+_content=$(sed $'s/\033\[[0-9;]*[A-Za-z]//g' < "$_out")
 assert_contains "$_content" "Centered"
 rm -f "$_out"
 
@@ -156,12 +156,12 @@ SHELLFRAME_TEXT_RENDERED=""
 SHELLFRAME_TEXT_ALIGN="right"
 SHELLFRAME_TEXT_WRAP=0
 _out=$(mktemp)
-_SF_FRAME_PREV=(); shellframe_fb_frame_start 2 20
+_SF_ROW_PREV=(); shellframe_fb_frame_start 2 20
 exec 3>"$_out"
 shellframe_text_render 1 1 20 2
 shellframe_screen_flush
 exec 3>&-
-_content=$(tr -d '\033' < "$_out" | sed 's/\[[0-9;]*[A-Za-z]//g')
+_content=$(sed $'s/\033\[[0-9;]*[A-Za-z]//g' < "$_out")
 assert_contains "$_content" "Right"
 rm -f "$_out"
 
@@ -171,12 +171,12 @@ SHELLFRAME_TEXT_RENDERED=""
 SHELLFRAME_TEXT_ALIGN="left"
 SHELLFRAME_TEXT_WRAP=0
 _out=$(mktemp)
-_SF_FRAME_PREV=(); shellframe_fb_frame_start 5 30
+_SF_ROW_PREV=(); shellframe_fb_frame_start 5 30
 exec 3>"$_out"
 shellframe_text_render 1 1 30 5
 shellframe_screen_flush
 exec 3>&-
-_content=$(tr -d '\033' < "$_out" | sed 's/\[[0-9;]*[A-Za-z]//g')
+_content=$(sed $'s/\033\[[0-9;]*[A-Za-z]//g' < "$_out")
 assert_contains "$_content" "one"
 assert_contains "$_content" "two"
 rm -f "$_out"
@@ -187,12 +187,12 @@ SHELLFRAME_TEXT_RENDERED=""
 SHELLFRAME_TEXT_ALIGN="left"
 SHELLFRAME_TEXT_WRAP=1
 _out=$(mktemp)
-_SF_FRAME_PREV=(); shellframe_fb_frame_start 5 10
+_SF_ROW_PREV=(); shellframe_fb_frame_start 5 10
 exec 3>"$_out"
 shellframe_text_render 1 1 10 5
 shellframe_screen_flush
 exec 3>&-
-_content=$(tr -d '\033' < "$_out" | sed 's/\[[0-9;]*[A-Za-z]//g')
+_content=$(sed $'s/\033\[[0-9;]*[A-Za-z]//g' < "$_out")
 assert_contains "$_content" "The"
 assert_contains "$_content" "quick"
 rm -f "$_out"
@@ -203,7 +203,7 @@ SHELLFRAME_TEXT_RENDERED=$'\033[1mplain\033[0m'
 SHELLFRAME_TEXT_ALIGN="left"
 SHELLFRAME_TEXT_WRAP=0
 _out=$(mktemp)
-_SF_FRAME_PREV=(); shellframe_fb_frame_start 2 20
+_SF_ROW_PREV=(); shellframe_fb_frame_start 2 20
 exec 3>"$_out"
 shellframe_text_render 1 1 20 2
 shellframe_screen_flush

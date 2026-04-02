@@ -324,20 +324,20 @@ _render_tree() {
     local _out
     _out=$(mktemp "${TMPDIR:-/tmp}/sf-test-tree.XXXXXX")
     trap '{ exec 3>/dev/null 2>/dev/null || true; rm -f "$_out"; }' RETURN
-    _SF_FRAME_PREV=()
+    _SF_ROW_PREV=()
     shellframe_fb_frame_start "$_height" "$_width"
     exec 3>"$_out"
     shellframe_tree_render "$_top" "$_left" "$_width" "$_height"
     shellframe_screen_flush
     exec 3>/dev/null
-    tr -d '\033' < "$_out" | sed 's/\[[0-9;]*[A-Za-z]//g'
+    sed $'s/\033\[[0-9;]*[A-Za-z]//g' < "$_out"
 }
 
 ptyunit_test_begin "tree_render: root nodes appear in output"
 _reset_tree
 _out=$(_render_tree 1 1 20 5)
 assert_contains "$_out" "Root A" "Root A in output"
-assert_contains "$_out" "RootB" "Root B in output"
+assert_contains "$_out" "Root B" "Root B in output"
 
 ptyunit_test_begin "tree_render: collapsed parent shows expand indicator"
 _reset_tree
@@ -358,13 +358,12 @@ _shellframe_tree_set_expanded "tr" 0 "1"
 _shellframe_tree_build_view "tr"
 _shellframe_tree_sync_state "tr" 0
 _out=$(_render_tree 1 1 20 6)
-assert_contains "$_out" "ChildA1" "child visible after expand"
+assert_contains "$_out" "Child A1" "child visible after expand"
 
 ptyunit_test_begin "tree_render: leaf node has no expand/collapse indicator"
 _reset_tree
 _out=$(_render_tree 1 1 20 5)
 # Leaf C (no children) should appear without ▶ prefix; check it appears at all
-# Non-selected rows: spaces are not emitted by screen_flush diff optimization
-assert_contains "$_out" "LeafC" "leaf appears in output"
+assert_contains "$_out" "Leaf C" "leaf appears in output"
 
 ptyunit_test_summary

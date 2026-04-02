@@ -182,13 +182,13 @@ _render_field() {
     local _out
     _out=$(mktemp "${TMPDIR:-/tmp}/sf-test-field.XXXXXX")
     trap '{ exec 3>&- 2>/dev/null || true; rm -f "$_out"; }' RETURN
-    _SF_FRAME_PREV=()
+    _SF_ROW_PREV=()
     shellframe_fb_frame_start 1 "$_width"
     exec 3>"$_out"
     shellframe_field_render "$_top" "$_left" "$_width"
     shellframe_screen_flush
     exec 3>&-
-    tr -d '\033' < "$_out" | sed 's/\[[0-9;]*[A-Za-z]//g'
+    sed $'s/\033\[[0-9;]*[A-Za-z]//g' < "$_out"
 }
 
 ptyunit_test_begin "field_render: placeholder shown when empty and unfocused"

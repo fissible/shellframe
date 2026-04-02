@@ -82,87 +82,86 @@ assert_eq "0" "$?" "mouse_exit exits 0"
 
 # ── shellframe_fb_put ─────────────────────────────────────────────────────────
 
-ptyunit_test_begin "fb_put: stores cell at correct index"
+ptyunit_test_begin "fb_put: stores cell in row fragment"
 shellframe_fb_frame_start 4 10
 shellframe_fb_put 2 3 "X"
-# idx = (2-1)*10 + (3-1) = 12
-assert_eq "X" "${_SF_FRAME_CURR[12]:-}" "cell stored at idx 12"
+assert_contains "${_SF_ROW_CURR[2]:-}" "X" "cell in row 2 fragment"
 
-ptyunit_test_begin "fb_put: adds index to dirty list"
+ptyunit_test_begin "fb_put: marks row dirty"
 shellframe_fb_frame_start 4 10
 shellframe_fb_put 1 1 "A"
-assert_eq "0" "${_SF_FRAME_DIRTY[0]:-}" "idx 0 in dirty list"
+assert_eq "1" "${_SF_DIRTY_ROWS[1]:-}" "row 1 in dirty list"
 
 # ── shellframe_fb_print ───────────────────────────────────────────────────────
 
-ptyunit_test_begin "fb_print: splits string into per-cell entries"
+ptyunit_test_begin "fb_print: string appears in row fragment"
 shellframe_fb_frame_start 1 10
 shellframe_fb_print 1 1 "hi"
-assert_eq "h" "${_SF_FRAME_CURR[0]:-}" "col 1 = h"
-assert_eq "i" "${_SF_FRAME_CURR[1]:-}" "col 2 = i"
+assert_contains "${_SF_ROW_CURR[1]:-}" "hi" "string in row fragment"
 
-ptyunit_test_begin "fb_print: applies prefix to each cell"
+ptyunit_test_begin "fb_print: prefix included in fragment"
 shellframe_fb_frame_start 1 10
 shellframe_fb_print 1 1 "ab" $'\033[1m'
-assert_eq $'\033[1mb' "${_SF_FRAME_CURR[1]:-}" "col 2 has bold prefix"
+assert_contains "${_SF_ROW_CURR[1]:-}" $'\033[1m' "bold prefix in fragment"
+assert_contains "${_SF_ROW_CURR[1]:-}" "ab" "text after prefix"
 
 # ── shellframe_fb_fill ────────────────────────────────────────────────────────
 
-ptyunit_test_begin "fb_fill: fills N cells with char"
+ptyunit_test_begin "fb_fill: fills row with N copies of char"
 shellframe_fb_frame_start 1 10
 shellframe_fb_fill 1 2 3 "-"
-assert_eq "-" "${_SF_FRAME_CURR[1]:-}" "col 2 = -"
-assert_eq "-" "${_SF_FRAME_CURR[2]:-}" "col 3 = -"
-assert_eq "-" "${_SF_FRAME_CURR[3]:-}" "col 4 = -"
-assert_eq "" "${_SF_FRAME_CURR[4]:-}" "col 5 untouched"
+assert_contains "${_SF_ROW_CURR[1]:-}" "---" "3 dashes in row fragment"
+
+ptyunit_test_begin "fb_fill: untouched row is empty"
+shellframe_fb_frame_start 1 10
+shellframe_fb_fill 1 2 3 "-"
+assert_eq "" "${_SF_ROW_CURR[2]:-}" "row 2 untouched"
 
 # ── shellframe_screen_flush: diff behavior ────────────────────────────────────
 
 ptyunit_test_begin "flush: no-change → zero output"
-_SF_FRAME_PREV=()
+_SF_ROW_PREV=()
 shellframe_fb_frame_start 2 5
 shellframe_fb_put 1 1 "A"
 _out=$(mktemp)
 exec 3>"$_out"
-shellframe_screen_flush       # first flush: A emitted, PREV[0]="A"
+shellframe_screen_flush
 exec 3>&-
-shellframe_fb_frame_start 2 5   # reset CURR/DIRTY but keep PREV
-shellframe_fb_put 1 1 "A"        # same content
+shellframe_fb_frame_start 2 5
+shellframe_fb_put 1 1 "A"
 _out2=$(mktemp)
 exec 3>"$_out2"
-shellframe_screen_flush       # second flush: A==A → no output
+shellframe_screen_flush
 exec 3>&-
 _size=$(wc -c < "$_out2" | tr -d ' ')
-assert_eq "0" "$_size" "no output for unchanged cell"
+assert_eq "0" "$_size" "no output for unchanged row"
 rm -f "$_out" "$_out2"
 
-ptyunit_test_begin "flush: single-cell change → only that cell emitted"
-_SF_FRAME_PREV=()
+ptyunit_test_begin "flush: single-cell change → row emitted"
+_SF_ROW_PREV=()
 shellframe_fb_frame_start 3 10
 shellframe_fb_put 2 4 "Z"
 _out=$(mktemp)
 exec 3>"$_out"
 shellframe_screen_flush
 exec 3>&-
-_raw=$(tr -d '\033' < "$_out" | sed 's/\[[0-9;]*[A-Za-z]//g')
+_raw=$(sed $'s/\033\[[0-9;]*[A-Za-z]//g' < "$_out")
 assert_contains "$_raw" "Z" "changed cell emitted"
 rm -f "$_out"
 
-ptyunit_test_begin "flush: erasure — PREV cell not in CURR emits space"
-_SF_FRAME_PREV=()
+ptyunit_test_begin "flush: erasure — PREV row not in CURR emits clear"
+_SF_ROW_PREV=()
 shellframe_fb_frame_start 1 5
 shellframe_fb_put 1 1 "Q"
 _out=$(mktemp)
 exec 3>"$_out"
-shellframe_screen_flush          # PREV[0]="Q" now
+shellframe_screen_flush
 exec 3>&-
-shellframe_fb_frame_start 1 5   # CURR is empty (no put), DIRTY is empty
+shellframe_fb_frame_start 1 5
 _out2=$(mktemp)
 exec 3>"$_out2"
-shellframe_screen_flush          # PREV has Q at idx 0, CURR has nothing → emit space
+shellframe_screen_flush
 exec 3>&-
-_content=$(tr -d '\033' < "$_out2" | sed 's/\[[0-9;]*[A-Za-z]//g')
-# After erasure, a space should have been emitted to overwrite the Q
 _size=$(wc -c < "$_out2" | tr -d ' ')
 assert_eq "1" "$(( _size > 0 ))" "erasure emits output"
 rm -f "$_out" "$_out2"
@@ -172,12 +171,12 @@ rm -f "$_out" "$_out2"
 ptyunit_test_begin "screen_clear: resets CURR, PREV, and DIRTY"
 shellframe_fb_frame_start 2 5
 shellframe_fb_put 1 1 "X"
-_SF_FRAME_PREV[0]="X"
-_SF_FRAME_DIRTY=(0)
+_SF_ROW_PREV[1]="old"
+_SF_DIRTY_ROWS[1]=1
 exec 3>/dev/null
 shellframe_screen_clear
-assert_eq "0" "${#_SF_FRAME_CURR[@]}" "CURR reset"
-assert_eq "0" "${#_SF_FRAME_PREV[@]}" "PREV reset"
-assert_eq "0" "${#_SF_FRAME_DIRTY[@]}" "DIRTY reset"
+assert_eq "0" "${#_SF_ROW_CURR[@]}" "CURR reset"
+assert_eq "0" "${#_SF_ROW_PREV[@]}" "PREV reset"
+assert_eq "0" "${#_SF_DIRTY_ROWS[@]}" "DIRTY reset"
 
 ptyunit_test_summary

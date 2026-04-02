@@ -910,7 +910,9 @@ shellframe_editor_render() {
     local _rev="${SHELLFRAME_REVERSE:-$'\033[7m'}"
     local _rst="${SHELLFRAME_RESET:-$'\033[0m'}"
 
-    # Accumulate all output into _buf; write once to eliminate mid-frame flicker.
+    # DIRECT_RENDER: fast path writes directly to fd3 (typing responsiveness).
+    # Framebuffer path: writes per-row fragments to _SF_ROW_CURR.
+    local _direct="${SHELLFRAME_EDITOR_DIRECT_RENDER:-0}"
     local _buf="" _tmp=""
 
     if (( _wrap )); then
@@ -933,8 +935,12 @@ shellframe_editor_render() {
             local _screen_row=$(( _top + _r ))
             local _vr=$(( _vtop + _r ))
 
-            printf -v _tmp '\033[%d;%dH\033[0m%s%*s' "$_screen_row" "$_left" "${SHELLFRAME_EDITOR_BG:-}" "$_width" ''
-            _buf+="$_tmp"
+            if (( _direct )); then
+                printf -v _tmp '\033[%d;%dH\033[0m%s%*s' "$_screen_row" "$_left" "${SHELLFRAME_EDITOR_BG:-}" "$_width" ''
+                _buf+="$_tmp"
+            else
+                shellframe_fb_fill "$_screen_row" "$_left" "$_width" " " "${SHELLFRAME_EDITOR_BG:-}"
+            fi
             [[ $_vr -ge $_total_vrows ]] && continue
 
             local _e="${_vmap_arr[$_vr]}"
@@ -946,27 +952,35 @@ shellframe_editor_render() {
             local _vis="${_line:$_s:$_l}"
             local _vlen="${#_vis}"
 
-            printf -v _tmp '\033[%d;%dH' "$_screen_row" "$_left"
-            _buf+="$_tmp"
-
+            local _row_content=""
             if (( _focused && _vr == _cursor_vrow )); then
                 local _cur_vis=$(( _col - _s ))
-                _buf+="${_vis:0:$_cur_vis}"
+                _row_content+="${_vis:0:$_cur_vis}"
                 if (( _cur_vis < _vlen )); then
-                    _buf+="${_rev}${_vis:$_cur_vis:1}${_rst}${SHELLFRAME_EDITOR_BG:-}"
-                    _buf+="${_vis:$(( _cur_vis + 1 ))}"
+                    _row_content+="${_rev}${_vis:$_cur_vis:1}${_rst}${SHELLFRAME_EDITOR_BG:-}"
+                    _row_content+="${_vis:$(( _cur_vis + 1 ))}"
                 else
-                    _buf+="${_rev} ${_rst}${SHELLFRAME_EDITOR_BG:-}"
+                    _row_content+="${_rev} ${_rst}${SHELLFRAME_EDITOR_BG:-}"
                 fi
                 local _drawn=$(( _vlen < _width ? _vlen : _width ))
                 (( _cur_vis >= _vlen )) && (( _drawn++ )) || true
                 local _pad=$(( _width - _drawn ))
                 if (( _pad > 0 )); then
                     printf -v _tmp '%*s' "$_pad" ''
-                    _buf+="$_tmp"
+                    _row_content+="$_tmp"
                 fi
             else
-                _buf+="${SHELLFRAME_EDITOR_FG:-}${_vis}"
+                _row_content="${SHELLFRAME_EDITOR_FG:-}${_vis}"
+            fi
+
+            if (( _direct )); then
+                printf -v _tmp '\033[%d;%dH' "$_screen_row" "$_left"
+                _buf+="$_tmp$_row_content"
+            else
+                local _frag
+                printf -v _frag '\033[%d;%dH%s' "$_screen_row" "$_left" "$_row_content"
+                _SF_ROW_CURR[$_screen_row]+="$_frag"
+                _SF_DIRTY_ROWS[$_screen_row]=1
             fi
         done
 
@@ -980,8 +994,12 @@ shellframe_editor_render() {
             local _screen_row=$(( _top + _r ))
             local _content_row=$(( _vtop + _r ))
 
-            printf -v _tmp '\033[%d;%dH\033[0m%s%*s' "$_screen_row" "$_left" "${SHELLFRAME_EDITOR_BG:-}" "$_width" ''
-            _buf+="$_tmp"
+            if (( _direct )); then
+                printf -v _tmp '\033[%d;%dH\033[0m%s%*s' "$_screen_row" "$_left" "${SHELLFRAME_EDITOR_BG:-}" "$_width" ''
+                _buf+="$_tmp"
+            else
+                shellframe_fb_fill "$_screen_row" "$_left" "$_width" " " "${SHELLFRAME_EDITOR_BG:-}"
+            fi
             [[ $_content_row -ge $_count ]] && continue
 
             local _line
@@ -989,50 +1007,44 @@ shellframe_editor_render() {
             local _vis="${_line:$_hscroll:$_width}"
             local _vlen="${#_vis}"
 
-            printf -v _tmp '\033[%d;%dH' "$_screen_row" "$_left"
-            _buf+="$_tmp"
-
+            local _row_content=""
             if (( _focused && _content_row == _row )); then
                 local _cur_vis=$(( _col - _hscroll ))
-                _buf+="${_vis:0:$_cur_vis}"
+                _row_content+="${_vis:0:$_cur_vis}"
                 if (( _cur_vis < _vlen )); then
-                    _buf+="${_rev}${_vis:$_cur_vis:1}${_rst}${SHELLFRAME_EDITOR_BG:-}"
-                    _buf+="${_vis:$(( _cur_vis + 1 ))}"
+                    _row_content+="${_rev}${_vis:$_cur_vis:1}${_rst}${SHELLFRAME_EDITOR_BG:-}"
+                    _row_content+="${_vis:$(( _cur_vis + 1 ))}"
                 else
-                    _buf+="${_rev} ${_rst}${SHELLFRAME_EDITOR_BG:-}"
+                    _row_content+="${_rev} ${_rst}${SHELLFRAME_EDITOR_BG:-}"
                 fi
                 local _drawn=$(( _vlen < _width ? _vlen : _width ))
                 (( _cur_vis >= _vlen )) && (( _drawn++ )) || true
                 local _pad=$(( _width - _drawn ))
                 if (( _pad > 0 )); then
                     printf -v _tmp '%*s' "$_pad" ''
-                    _buf+="$_tmp"
+                    _row_content+="$_tmp"
                 fi
             else
-                _buf+="${SHELLFRAME_EDITOR_FG:-}${_vis}"
+                _row_content="${SHELLFRAME_EDITOR_FG:-}${_vis}"
+            fi
+
+            if (( _direct )); then
+                printf -v _tmp '\033[%d;%dH' "$_screen_row" "$_left"
+                _buf+="$_tmp$_row_content"
+            else
+                local _frag
+                printf -v _frag '\033[%d;%dH%s' "$_screen_row" "$_left" "$_row_content"
+                _SF_ROW_CURR[$_screen_row]+="$_frag"
+                _SF_DIRTY_ROWS[$_screen_row]=1
             fi
         done
     fi
 
-    printf -v _tmp '\033[%d;%dH' "$(( _top + _height - 1 ))" "$_left"
-    _buf+="$_tmp"
-
-    if (( ${SHELLFRAME_EDITOR_DIRECT_RENDER:-0} )); then
-        # Fast path: write directly to fd3, bypass framebuffer entirely.
-        # Used during editor typing to avoid expensive full-screen redraws.
+    # Final cursor position + write (direct-render only)
+    if (( _direct )); then
+        printf -v _tmp '\033[%d;%dH' "$(( _top + _height - 1 ))" "$_left"
+        _buf+="$_tmp"
         printf '%s' "$_buf" >&3
-    else
-        # Claim editor rows in the framebuffer so shellframe_screen_flush won't
-        # treat prior-frame content (e.g. grid cells from a data tab) at these
-        # positions as erasures and overwrite our output with terminal-default spaces.
-        local _fb_r
-        for (( _fb_r=0; _fb_r<_height; _fb_r++ )); do
-            shellframe_fb_fill "$(( _top + _fb_r ))" "$_left" "$_width" " " "${SHELLFRAME_EDITOR_BG:-}"
-        done
-
-        # Defer the write until after shellframe_screen_flush so the FB-diff
-        # erasures don't stomp our content.
-        _SHELLFRAME_EDITOR_DEFERRED_BUF+="$_buf"
     fi
 }
 

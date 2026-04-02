@@ -223,7 +223,7 @@ ptyunit_test_begin "cmenu_render: dirty array tracks rendered cells"
 _reset_cmenu
 shellframe_fb_frame_start 24 80
 shellframe_cmenu_render 1 1 80 24
-# Row 5 should have dirty cells from the panel border
-assert_not_eq "0" "${_SF_FRAME_DIRTY[5]:-0}"
+# Row 5 should be marked dirty from the panel border
+assert_not_eq "" "${_SF_DIRTY_ROWS[5]:-}"
 
 ptyunit_test_summary

@@ -10,13 +10,14 @@ source "$SHELLFRAME_DIR/src/scroll.sh"
 source "$SHELLFRAME_DIR/src/widgets/scrollbar.sh"
 source "$PTYUNIT_HOME/assert.sh"
 
-# ── Helper: extract cell at (row, col) from framebuffer ──────────────────────
+# ── Helper: extract visible chars from row fragment ──────────────────────────
 
 _cell() {
     local _row="$1" _col="$2"
-    local _idx=$(( (_row - 1) * _SF_FRAME_COLS + (_col - 1) ))
-    # Strip ANSI prefixes to get the bare character
-    printf '%s' "${_SF_FRAME_CURR[$_idx]:-}" | sed $'s/\033\\[[0-9;]*[A-Za-z]//g'
+    # Row fragment contains positioned ANSI content; strip escapes to get
+    # visible chars.  For single-cell widgets (scrollbar) this yields the
+    # one character written to the row.
+    printf '%s' "${_SF_ROW_CURR[$_row]:-}" | sed $'s/\033\\[[0-9;]*[A-Za-z]//g'
 }
 
 # ── Content fits in viewport: nothing rendered ───────────────────────────────
