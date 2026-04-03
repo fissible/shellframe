@@ -214,7 +214,7 @@ shellframe_mouse_exit() {
 
 shellframe_raw_save()  { stty -g 2>/dev/null; }
 shellframe_raw_enter() {
-    stty -echo -icanon -icrnl min 1 time 0 2>/dev/null
+    stty -echo -icanon -icrnl -ixon min 1 time 0 2>/dev/null
     # Enable bracketed paste mode: terminal wraps pasted text in
     # ESC[200~ ... ESC[201~ so the editor can batch-insert it instantly.
     printf '\033[?2004h' >&3
