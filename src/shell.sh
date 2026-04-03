@@ -258,6 +258,12 @@ _shellframe_shell_draw() {
     # Refresh terminal size once per draw (no per-call stty forks)
     _shellframe_shell_refresh_size
 
+    # Sheet delegation: if a sheet is active, hand off the draw cycle entirely
+    if (( ${_SHELLFRAME_SHEET_ACTIVE:-0} )); then
+        shellframe_sheet_draw "$_SHELLFRAME_SHELL_ROWS" "$_SHELLFRAME_SHELL_COLS"
+        return
+    fi
+
     # Tick toast TTLs; expired toasts are removed and a redraw is scheduled
     if declare -f shellframe_toast_tick >/dev/null 2>&1; then
         local _pre_toast_n=${#_SHELLFRAME_TOAST_QUEUE[@]}
@@ -484,6 +490,13 @@ shellframe_shell() {
                 _SHELLFRAME_SHELL_RESIZED=0
                 shellframe_screen_clear
                 _shellframe_shell_draw "$_prefix" "$_current"
+            fi
+
+            # Sheet delegation: hand key to sheet while one is active
+            if (( ${_SHELLFRAME_SHEET_ACTIVE:-0} )); then
+                shellframe_sheet_on_key "$_key"
+                _shellframe_shell_draw_if_dirty "$_prefix" "$_current"
+                continue
             fi
 
             local _focused
