@@ -313,6 +313,12 @@ shellframe_grid_render() {
         local _row=$(( _data_top + _r ))
         local _ridx=$(( _vscroll_top + _r ))
 
+        # Rows beyond the data always get plain grid background
+        if (( _ridx >= _nrows )); then
+            shellframe_fb_fill "$_row" "$_left" "$_width" " " "$_grid_bg"
+            continue
+        fi
+
         # Determine per-row background: cursor > stripe > grid bg
         local _is_cursor=0
         (( _ridx == _cursor )) && _is_cursor=1
@@ -328,7 +334,6 @@ shellframe_grid_render() {
         fi
 
         shellframe_fb_fill "$_row" "$_left" "$_width" " " "$_row_bg"
-        [[ "$_ridx" -ge "$_nrows" ]] && continue
 
         # Multi-select checkbox prefix for the first visible column
         local _prefix=""
