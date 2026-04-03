@@ -6,6 +6,43 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/).
+## [0.4.0] - 2026-04-03
+
+### Added
+- Add SHELLFRAME_PANEL_CELL_ATTRS for per-cell border background
+- Mouse-driven screen transitions + modifier key decoding
+- Add mouse support for button clicks
+- Add shellframe_toast_show/tick/render widget (shellframe#37)
+- Add multi-field form widget with Tab traversal and scroll (shellframe#36)
+- Add module with attach/detach and prefix extraction (shellframe#38)
+- Add provider invocation and popup activation (shellframe#38)
+- Add on_key with accept/dismiss/navigate/filter (shellframe#38)
+- Add render with cursor-anchored popup positioning (shellframe#38)
+- Add example and integration tests (shellframe#38)
+- Module scaffold — state globals + push/pop/active API
+- Module scaffold — state globals + push/pop/active API
+- Shellframe_sheet_draw — registry swap + frozen rows + region dispatch
+- Shellframe_sheet_on_key — Esc/Up dismiss, Tab focus cycle, action dispatch
+- Wire shell.sh draw + key delegation; source sheet.sh
+- Two-step wizard example + integration tests
+- Merge feat/sheet — sheet navigation primitive (shellframe#27)
+
+### Changed
+- Row-based framebuffer — O(1) writes, O(rows) flush (shellframe#39)
+- Migrate to row-based framebuffer API
+
+### Fixed
+- Defer fd3 write past screen_flush to prevent FB erasure
+- Release events no longer dismiss context menu
+- Wire tick into draw loop; add theme-overridable toast colors
+- Fire on_focus after focus_init so newly-focusable regions get correct state
+- Reset ANSI attributes after border/separator chars to prevent style bleed
+- Use case statement for word-char matching; add @ boundary test
+- Add framebuffer lifecycle to example for integration tests
+- Correct editor-mode line var name; add missing tests
+- Reset shell-side globals and _SF_ROW_OFFSET in _reset_sheet test helper
+- Save FOCUS_REQUEST in Esc/Tab/Shift-Tab early-return swap-outs; document Tab-reserved
+- Correct test-3 assertion (Step 2 not Step 1); document submit dirty-state pattern
 ## [0.3.0] - 2026-03-26
 
 ### Added
