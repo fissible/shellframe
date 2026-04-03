@@ -4,3 +4,7 @@ coverage/
 .DS_Store
 .superpowers/
 .claude/
+.tome.db
+.tome.db-shm
+.tome.db-wal
+.cymbal.db
