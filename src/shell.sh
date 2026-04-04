@@ -635,6 +635,11 @@ shellframe_shell() {
                         _current="$_SHELLFRAME_SHELL_NEXT"
                         _SHELLFRAME_SHELL_NEXT=""
                         _screen_done=1
+                    else
+                        # _quit activated an overlay (e.g. confirm dialog) without
+                        # navigating screens — draw immediately so the overlay is
+                        # visible before the next key is read.
+                        _shellframe_shell_draw_if_dirty "$_prefix" "$_current"
                     fi
                 else
                     _current="__QUIT__"; _screen_done=1
