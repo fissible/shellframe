@@ -326,9 +326,6 @@ shellframe_grid_render() {
         local _row_bg="$_grid_bg"
         if (( _is_cursor && ${SHELLFRAME_GRID_FOCUSED:-0} )); then
             _row_bg="${SHELLFRAME_GRID_CURSOR_STYLE:-$_rev}"
-        elif (( _is_cursor )); then
-            # Unfocused cursor — subtle dark-gray highlight
-            _row_bg=$'\033[48;5;236m'
         elif [[ -n "${SHELLFRAME_GRID_STRIPE_BG:-}" ]] && (( _ridx % 2 == 1 )); then
             _row_bg="$SHELLFRAME_GRID_STRIPE_BG"
         fi
