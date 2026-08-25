@@ -17,6 +17,8 @@ source "$PTYUNIT_HOME/assert.sh"
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 _reset_shell() {
+    _SF_LAST_RENDER_MS=0    # #51: neutralize the render throttle between tests
+    _SF_DEFERRED_RENDERS=0
     _SHELLFRAME_SHELL_REGIONS=()
     _SHELLFRAME_SHELL_FOCUS_RING=()
     _SHELLFRAME_SHELL_FOCUS_IDX=0
@@ -393,5 +395,22 @@ _shellframe_shell_draw "_tsd" "ROOT"
 # "stale" was registered before the draw; after draw it should be gone
 # (the draw cleared the hitbox and re-registered from _tsd_ROOT_render)
 assert_output "" shellframe_widget_at 0 0 2>/dev/null || true   # stale gone
+
+
+# ── #51: render throttle decision ────────────────────────────────────────────
+
+ptyunit_test_begin "throttle #51: inside min interval -> defer"
+_SF_LAST_RENDER_MS=$(_shellframe_now_ms)
+if _shellframe_should_defer_render; then ptyunit_pass; else ptyunit_fail "expected defer"; fi
+
+ptyunit_test_begin "throttle #51: beyond max deferral window -> render"
+_SF_LAST_RENDER_MS=$(( $( _shellframe_now_ms ) - 1000 ))
+if _shellframe_should_defer_render; then ptyunit_fail "expected render"; else ptyunit_pass; fi
+
+ptyunit_test_begin "throttle #51: missing sub-second clock -> never defer"
+_SF_LAST_RENDER_MS=$(_shellframe_now_ms)
+_shellframe_now_ms() { printf ''; }
+if _shellframe_should_defer_render; then ptyunit_fail "deferred without a clock"; else ptyunit_pass; fi
+unset -f _shellframe_now_ms
 
 ptyunit_test_summary

@@ -330,15 +330,65 @@ _shellframe_shell_draw() {
 # render is deferred — the dirty flag stays set and the caller loops back to
 # process the next event first. This naturally coalesces rapid-fire events
 # (especially mouse-scroll ticks) into a single render at the end.
+#
+# ── Coalescing design (#51) ──────────────────────────────────────────────────
+# The originally-prototyped `read -t 0` input probe is UNSAFE and is never
+# coming back: on bash 5.x a `read -r -n1 -d '' -t 0` consumes/destroys all
+# buffered bytes while reporting an empty value (verified — "XYZ" vanished
+# from the stream), so keystrokes were lost mid-escape-sequence. That data
+# loss is the root cause of the historical "crash in raw terminal mode".
+# On bash 3.2 the same probe returns 1 without reading, i.e. it silently
+# did nothing. Lesson recorded in docs/hard-won-lessons.md.
+#
+# Instead, coalescing is TIME-BASED and never touches the input stream:
+#   - renders are skipped while within SHELLFRAME_RENDER_MIN_INTERVAL_MS of
+#     the last render,
+#   - but never deferred more than SHELLFRAME_RENDER_MAX_DEFER_MS since the
+#     first skipped frame (a sustained stream still makes visible progress),
+#   - requires a sub-second clock; without one (bash 3.2 + BSD date) the
+#     helper reports empty and rendering is unthrottled, as before.
+_shellframe_now_ms() {
+    if [[ -n "${EPOCHREALTIME:-}" ]]; then
+        local _s="${EPOCHREALTIME%%.*}" _f="${EPOCHREALTIME#*.}01"
+        printf '%d' "$(( _s * 1000 + 10#${_f:0:3} ))"
+    elif date +%s%3N >/dev/null 2>&1 </dev/null; then
+        date +%s%3N
+    else
+        printf ''
+    fi
+}
+
+# Pure throttle decision: should a dirty frame be deferred right now?
+_shellframe_should_defer_render() {
+    local _now; _now=$(_shellframe_now_ms)
+    [[ -z "$_now" ]] && return 1                       # no sub-second clock
+    local _min="${SHELLFRAME_RENDER_MIN_INTERVAL_MS:-33}"
+    local _max="${SHELLFRAME_RENDER_MAX_DEFER_MS:-200}"
+    local _age=$(( _now - ${_SF_LAST_RENDER_MS:-0} ))
+    (( _age >= _max )) && return 1                     # deferral window spent
+    (( _age < _min )) && return 0                      # inside throttle window
+    return 1
+}
+
 _shellframe_shell_draw_if_dirty() {
+    local _force=0
+    if [[ "${1:-}" == "--force" ]]; then _force=1; shift; fi
     (( _SHELLFRAME_SHELL_DIRTY )) || return 0
-    # TODO: Event coalescing — defer render while more input is queued.
-    # Disabled pending investigation of crash in raw terminal mode.
-    # When re-enabled, use: read -t 0 2>/dev/null && return 0
-    # (only under _SHELLFRAME_SHELL_RUNNING=1 && bash 4+)
+    if (( ! _force )) && _shellframe_should_defer_render; then
+        _SF_DEFERRED_RENDERS=$(( ${_SF_DEFERRED_RENDERS:-0} + 1 ))
+        return 0                        # keep _SHELLFRAME_SHELL_DIRTY=1
+    fi
+    _SF_DEFERRED_RENDERS=0
+    _SF_LAST_RENDER_MS=$(_shellframe_now_ms)
     _SHELLFRAME_SHELL_DIRTY=0
     _shellframe_shell_draw "$@"
 }
+_SF_LAST_RENDER_MS=0     # first-render baseline (ms)
+_SF_DEFERRED_RENDERS=0
+
+# Trailing render: when the input loop's timed read finally expires with
+# frames still deferred, draw once so the UI reflects reality (#51).
+# Called from the timeout branch of the shell input loop.
 
 # ── _shellframe_shell_read_key ────────────────────────────────────────────────
 #
@@ -511,7 +561,9 @@ shellframe_shell() {
                 _current="__QUIT__"; _screen_done=1; continue
             fi
             if [[ -z "$_key" ]]; then
-                # Timeout: tick toasts so they expire even when user is idle
+                # Timeout: the input queue is provably empty — force-flush any
+                # coalesced frame, then tick toasts for idle users
+                _shellframe_shell_draw_if_dirty --force "$_prefix" "$_current"
                 if (( ${#_SHELLFRAME_TOAST_QUEUE[@]} > 0 )); then
                     shellframe_shell_mark_dirty
                     _shellframe_shell_draw_if_dirty "$_prefix" "$_current"

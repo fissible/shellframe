@@ -99,4 +99,12 @@ _ie_rc=0
 _ieout=$( python3 "$PTY_RUN" "$SHELLFRAME_DIR/tests/fixtures/shell-idle-eof.sh" ) || _ie_rc=$?
 assert_contains "$_ieout" "idle-shell-returned:1"
 assert_eq "0" "$_ie_rc"
+# ── #51: rapid event burst coalesces without losing the final state ──────────
+
+ptyunit_test_begin "shell-runtime #51: 40-key burst lands on clamped end state"
+_burst=""
+for _i in $(seq 1 40); do _burst+=$'\x1b[B'; done   # 40 DOWN arrows, one write
+out=$(_pty "$_burst" ENTER)
+assert_contains "$out" "Selected: elderberry"
+
 ptyunit_test_summary

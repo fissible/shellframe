@@ -197,3 +197,27 @@ my_tui() {
 
 chosen=$(my_tui)             # works correctly
 ```
+
+## 10. `read -t 0` destroys buffered input — never use it as an "input pending" probe
+
+**Symptom:** the v2 shell runtime's original render-coalescing prototype
+(`read -t 0` to check for queued input before drawing) was blamed for a
+"crash in raw terminal mode" and disabled. The real mechanism, reproduced in
+2026-08-25 while re-investigating for #51:
+
+```bash
+printf 'XYZ'
+IFS= read -r -n1 -d '' -t 0 k   # rc=0, k="" — and XYZ is GONE from the stream
+```
+
+On bash ≥4, a zero-timeout read performs one non-blocking `read()` that
+consumes everything buffered into internal state, then reports an empty value.
+Keystrokes vanish — including bytes mid-escape-sequence, which corrupts every
+subsequent sequence parse. On bash 3.2 the same probe returns 1 *without*
+reading (it silently does nothing), so the bug was invisible there.
+
+**Rule:** in pure bash there is no non-consuming input-availability probe.
+Never gate rendering (or anything else) on `read -t 0`. Coalesce with TIME
+instead: defer the draw until `now - last_render` leaves the throttle window,
+and force-flush when the input loop's timed read expires — the queue is then
+provably empty. See `_shellframe_should_defer_render` in `src/shell.sh`.
