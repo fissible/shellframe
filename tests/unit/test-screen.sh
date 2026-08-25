@@ -179,4 +179,28 @@ assert_eq "0" "${#_SF_ROW_CURR[@]}" "CURR reset"
 assert_eq "0" "${#_SF_ROW_PREV[@]}" "PREV reset"
 assert_eq "0" "${#_SF_DIRTY_ROWS[@]}" "DIRTY reset"
 
+
+# ── #50: framebuffer sparse rows / resize under set -u ────────────────────────
+# Indexed-array append-assign on unset elements is safe under nounset
+# (verified bash 3.2 + 5.x); these tests pin the behavior so a refactor can't
+# introduce an unguarded READ of a possibly-absent element.
+
+ptyunit_test_begin "screen #50: sparse high row index renders clean under set -u"
+shellframe_fb_frame_start 5 40
+shellframe_fb_put 12 1 "late row"     # row beyond declared height, never initialized
+out=$(shellframe_screen_flush 3>&1)   # dup stdout onto fd 3 for capture
+assert_contains "$out" "late row"
+
+ptyunit_test_begin "screen #50: frame growth after empty frames stays unbound-free"
+shellframe_fb_frame_start 2 10        # small frame, mostly-empty PREV state
+shellframe_screen_clear               # resets all three planes
+shellframe_fb_frame_start 30 80       # grow
+shellframe_fb_print 25 1 "grown"
+shellframe_screen_flush >/dev/null    # must not raise "unbound variable"
+if declare -p _SF_ROW_PREV >/dev/null 2>&1; then
+    ptyunit_pass
+else
+    ptyunit_fail "framebuffer planes no longer declared after growth"
+fi
+
 ptyunit_test_summary
