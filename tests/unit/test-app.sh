@@ -82,4 +82,55 @@ assert_called_times "shellframe_confirm" 1
 # unregistered names, so assert_not_called works correctly without a mock.
 assert_not_called "shellframe_alert"
 
+# ── #41: missing screen/handler guards ───────────────────────────────────────
+# shellframe_app must diagnose and exit non-zero instead of looping forever.
+# Each case runs under a watchdog: pre-fix behavior (command-not-found loop)
+# is killed after 3s and reports rc=137, which fails the exact rc assertion.
+
+# Run shellframe_app in a background subshell with a kill watchdog.
+# Sets __appbg_output, __appbg_rc.
+_run_app_with_watchdog() {
+    __appbg_output=""
+    __appbg_rc=0
+    ( "$@" ) > /tmp/sf-app-bg.out 2>&1 &
+    local _pid=$!
+    ( sleep 3; kill -9 "$_pid" 2>/dev/null ) &
+    local _wd=$!
+    wait "$_pid"; __appbg_rc=$?
+    kill "$_wd" 2>/dev/null
+    wait "$_wd" 2>/dev/null
+    __appbg_output=$(< /tmp/sf-app-bg.out)
+    rm -f /tmp/sf-app-bg.out
+}
+
+ptyunit_test_begin "app #41: transition to nonexistent screen → diagnostic + exit 1"
+ptyunit_mock shellframe_alert --exit 0
+_appB_ROOT_type()    { printf 'alert'; }
+_appB_ROOT_render()  { _SHELLFRAME_APP_TITLE="x"; }
+_appB_ROOT_dismiss() { _SHELLFRAME_APP_NEXT="NOWHERE"; }   # screen has no _type fn
+_run_app_with_watchdog shellframe_app "_appB" "ROOT"
+assert_eq "1" "$__appbg_rc"
+assert_contains "$__appbg_output" "unknown screen"
+
+ptyunit_test_begin "app #41: handler does not set _SHELLFRAME_APP_NEXT → diagnostic + exit 1"
+_appC_ROOT_type()   { printf 'alert'; }
+_appC_ROOT_render() { _SHELLFRAME_APP_TITLE="x"; }
+_appC_ROOT_dismiss(){ :; }                                    # forgets NEXT
+_run_app_with_watchdog shellframe_app "_appC" "ROOT"
+assert_eq "1" "$__appbg_rc"
+assert_contains "$__appbg_output" "_SHELLFRAME_APP_NEXT"
+
+ptyunit_test_begin "app #41: missing event handler function → diagnostic + exit 1"
+_appD_ROOT_type()    { printf 'confirm'; }
+_appD_ROOT_render()  { _SHELLFRAME_APP_QUESTION="?"; }
+ptyunit_mock shellframe_confirm --exit 1   # rc=1 → event 'no', but _appD_ROOT_no undefined
+_run_app_with_watchdog shellframe_app "_appD" "ROOT"
+assert_eq "1" "$__appbg_rc"
+assert_contains "$__appbg_output" "handler"
+
+ptyunit_test_begin "app #41: empty initial screen name → diagnostic + exit 1"
+_run_app_with_watchdog shellframe_app "_appE" ""
+assert_eq "1" "$__appbg_rc"
+assert_contains "$__appbg_output" "unknown screen"
+
 ptyunit_test_summary

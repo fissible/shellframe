@@ -79,6 +79,15 @@ _SHELLFRAME_APP_TITLE=""
 _SHELLFRAME_APP_DETAILS=()
 
 # Map widget return code → event name string
+# Fatal configuration error: print a diagnostic to stderr and exit non-zero.
+# Used for missing screen functions / handlers so a typo'd screen name becomes
+# a readable error instead of an infinite command-not-found loop (#41).
+_shellframe_app_die() {
+    printf 'shellframe: %s\n' "$1" >&2
+    exit 1
+}
+
+# Map widget return code → event name string
 _shellframe_app_event() {
     local _type="$1" _rc="$2"
     case "$_type" in
@@ -112,6 +121,9 @@ shellframe_app() {
 
         # Get screen type (pure — subshell OK), run render hook (direct — can mutate globals)
         local _type
+        if ! declare -F "${_prefix}_${_current}_type" >/dev/null 2>&1; then
+            _shellframe_app_die "unknown screen '${_current}' (prefix '${_prefix}') — missing ${_prefix}_${_current}_type()"
+        fi
         _type=$("${_prefix}_${_current}_type")
         "${_prefix}_${_current}_render"
 
@@ -152,10 +164,17 @@ shellframe_app() {
 
         # Map rc → event name, call event handler directly (not in $() — safe to
         # mutate globals).  Handler must set _SHELLFRAME_APP_NEXT to the next screen name.
-        local _event
+        local _event _event_fn
         _event=$(_shellframe_app_event "$_type" "$_rc")
+        _event_fn="${_prefix}_${_current}_${_event}"
+        if ! declare -F "$_event_fn" >/dev/null 2>&1; then
+            _shellframe_app_die "screen '${_current}': missing ${_event_fn}() handler for widget type '${_type}'"
+        fi
         _SHELLFRAME_APP_NEXT=""
-        "${_prefix}_${_current}_${_event}"
+        "$_event_fn"
+        if [[ -z "${_SHELLFRAME_APP_NEXT:-}" ]]; then
+            _shellframe_app_die "screen '${_current}': ${_event_fn}() did not set _SHELLFRAME_APP_NEXT"
+        fi
         _current="$_SHELLFRAME_APP_NEXT"
     done
 }
