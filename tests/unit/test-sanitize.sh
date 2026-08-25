@@ -8,6 +8,13 @@ SHELLFRAME_DIR="$(cd "$TESTS_DIR/.."; pwd)"
 source "$SHELLFRAME_DIR/shellframe.sh"
 source "$PTYUNIT_HOME/assert.sh"
 
+# Exercise UTF-8 collation wherever available: the CSI final-byte class
+# [@-~] silently failed to match letters under bash 3.2 + UTF-8 collation
+# (review blocker, 2026-08-25) — CI's C-locale runners cannot see it.
+if locale -a 2>/dev/null | grep -qi 'en_US.utf8\|en_US.UTF-8'; then
+    export LANG=en_US.UTF-8 LC_COLLATE=en_US.UTF-8
+fi
+
 ptyunit_test_begin "sanitize: plain text passes through untouched"
 assert_eq "hello world" "$(shellframe_sanitize "hello world")"
 
@@ -39,5 +46,8 @@ assert_eq 'a\nb' "$_out"
 
 ptyunit_test_begin "sanitize: trailing truncated escape dropped"
 assert_eq "ok" "$(shellframe_sanitize $'ok\033[31')"
+
+ptyunit_test_begin "sanitize: multi-byte text survives byte-collation pinning"
+assert_eq "日本語テスト" "$(shellframe_sanitize "日本語テスト")"
 
 ptyunit_test_summary

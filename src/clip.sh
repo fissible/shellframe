@@ -186,11 +186,34 @@ shellframe_str_pad() {
 # text, file names) before it enters an editor buffer or the render path (#45).
 # Literal characters are never interpreted: a backslash-n stays two chars.
 #
+# Collation note (review 2026-08-25): the CSI final-byte class [@-~] relies
+# on byte-ordered range matching. Under bash 3.2 with a UTF-8 locale,
+# bracket ranges follow collation order and letters fall outside [@-~] —
+# so a CSI would never terminate and everything after the first escape was
+# dropped. LC_COLLATE=C is pinned for the whole function.
+#
 # Usage:
 #   sanitized=$(shellframe_sanitize "$raw")        # prints result
 #   shellframe_sanitize "$raw" out_var             # or sets out_var
 shellframe_sanitize() {
     local _raw="$1" _out_var="${2:-}"
+    local LC_COLLATE=C
+
+    # Fast path (#45 review): nothing to strip when there is no ESC and no
+    # control character besides \n and \t — which are kept verbatim anyway.
+    # Two O(n) pattern scans in C beat the per-character bash loop by orders
+    # of magnitude on typical (clean) pastes.
+    local _probe="${_raw//$'\n'/}"
+    _probe="${_probe//$'\t'/}"
+    if [[ "$_probe" != *$'\x1b'* && "$_probe" != *[[:cntrl:]]* ]]; then
+        if [[ -n "$_out_var" ]]; then
+            printf -v "$_out_var" '%s' "$_raw"
+        else
+            printf '%s' "$_raw"
+        fi
+        return 0
+    fi
+
     local _n="${#_raw}" _i=0 _c="" _state=0 _out=""
     # Bracket class of C0 controls + DEL, built via printf because $'..'
     # escapes do not expand inside case-pattern bracket expressions.
