@@ -351,8 +351,11 @@ _shellframe_now_ms() {
     if [[ -n "${EPOCHREALTIME:-}" ]]; then
         local _s="${EPOCHREALTIME%%.*}" _f="${EPOCHREALTIME#*.}01"
         printf '%d' "$(( _s * 1000 + 10#${_f:0:3} ))"
-    elif date +%s%3N >/dev/null 2>&1 </dev/null; then
-        date +%s%3N
+    elif _d=$(date +%s%3N 2>/dev/null) && [[ "$_d" =~ ^[0-9]{13}$ ]]; then
+        # Validate the VALUE, not just the exit status: busybox date accepts
+        # %3N and silently prints seconds-only (10 digits), which would make
+        # every age look like 0-1 ms and starve all rendering (#51).
+        printf '%s' "$_d"
     else
         printf ''
     fi

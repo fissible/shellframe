@@ -399,6 +399,9 @@ assert_output "" shellframe_widget_at 0 0 2>/dev/null || true   # stale gone
 
 # ── #51: render throttle decision ────────────────────────────────────────────
 
+_has_ms_clock() { [[ -n "$(_shellframe_now_ms)" ]]; }
+
+if _has_ms_clock; then
 ptyunit_test_begin "throttle #51: inside min interval -> defer"
 _SF_LAST_RENDER_MS=$(_shellframe_now_ms)
 if _shellframe_should_defer_render; then ptyunit_pass; else ptyunit_fail "expected defer"; fi
@@ -406,6 +409,11 @@ if _shellframe_should_defer_render; then ptyunit_pass; else ptyunit_fail "expect
 ptyunit_test_begin "throttle #51: beyond max deferral window -> render"
 _SF_LAST_RENDER_MS=$(( $( _shellframe_now_ms ) - 1000 ))
 if _shellframe_should_defer_render; then ptyunit_fail "expected render"; else ptyunit_pass; fi
+else
+ptyunit_test_begin "throttle #51: no ms clock on this platform -> unthrottled (by design)"
+_SF_LAST_RENDER_MS=0
+if _shellframe_should_defer_render; then ptyunit_fail "deferred without a clock"; else ptyunit_pass; fi
+fi
 
 ptyunit_test_begin "throttle #51: missing sub-second clock -> never defer"
 _SF_LAST_RENDER_MS=$(_shellframe_now_ms)
