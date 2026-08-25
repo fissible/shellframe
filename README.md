@@ -6,6 +6,11 @@ clean data to the caller.
 
 **Requirements:** bash 3.2+ (macOS default), a VT100-compatible terminal.
 
+> **Already using file descriptor 3?** shellframe opens a persistent tty
+> fd (default 3) for rendering. If your script owns fd 3, set
+> `SHELLFRAME_TTY_FD` to a free number **before sourcing** — e.g.
+> `SHELLFRAME_TTY_FD=7 source ./shellframe.sh`.
+
 > **Character-width limitation:** layout assumes single-column characters.
 > Wide characters (CJK, emoji) render in two terminal columns and combining
 > marks add none, but `shellframe_str_len` and every aligned surface (panel

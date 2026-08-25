@@ -26,7 +26,10 @@ _shellframe_pick_save_fd() {
     local _n
     for _n in 5 6 7 8 9; do
         (( _n == _SF_TTY_FD )) && continue
-        if ! { eval "exec $_n>&-" ; } 2>/dev/null; then
+        # An OPEN fd passes write-or-read; a CLOSED one fails both. (The
+        # obvious `exec N>&-` probe is useless: close is idempotent and
+        # returns 0 for open and closed fds alike — review round 3.)
+        if ! { : >&"$_n" || : <&"$_n"; } 2>/dev/null; then
             printf '%s' "$_n"
             return 0
         fi

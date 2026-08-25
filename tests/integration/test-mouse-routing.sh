@@ -96,7 +96,8 @@ ptyunit_test_summary
 
 ptyunit_test_begin "shell-runtime #44b: survives idle ticks, quits on later EOF"
 _ie_rc=0
-_ieout=$( python3 "$PTY_RUN" "$SHELLFRAME_DIR/tests/fixtures/shell-idle-eof.sh" ) || _ie_rc=$?
+# Generous timeout: slow runners must not kill the fixture mid-hold (rc 124)
+_ieout=$( PTY_TIMEOUT=25 python3 "$PTY_RUN" "$SHELLFRAME_DIR/tests/fixtures/shell-idle-eof.sh" ) || _ie_rc=$?
 assert_contains "$_ieout" "idle-shell-returned:1"
 assert_eq "0" "$_ie_rc"
 # ── #51: rapid event burst coalesces without losing the final state ──────────

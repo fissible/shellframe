@@ -198,7 +198,7 @@ my_tui() {
 chosen=$(my_tui)             # works correctly
 ```
 
-## 10. `read -t 0` destroys buffered input — never use it as an "input pending" probe
+## 10. `read -t 0` is not a portable "input pending" probe
 
 **Symptom:** the v2 shell runtime's original render-coalescing prototype
 (`read -t 0` to check for queued input before drawing) was blamed for a
