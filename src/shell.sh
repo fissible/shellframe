@@ -393,24 +393,8 @@ _shellframe_shell_read_key() {
                     [A-Za-z~]) break ;;
                 esac
             done
-            # SGR mouse: ESC [ < Pb ; Px ; Py M (press) or m (release)
-            local _sgr_pfx=$'\x1b[<'
-            if [[ "$_k" == "${_sgr_pfx}"* ]]; then
-                local _params="${_k#"${_sgr_pfx}"}"
-                _params="${_params%[Mm]}"
-                local _raw_btn="${_params%%;*}"
-                SHELLFRAME_MOUSE_SHIFT=$(( (_raw_btn >> 2) & 1 ))
-                SHELLFRAME_MOUSE_META=$(( (_raw_btn >> 3) & 1 ))
-                SHELLFRAME_MOUSE_CTRL=$(( (_raw_btn >> 4) & 1 ))
-                SHELLFRAME_MOUSE_BUTTON=$(( _raw_btn & ~28 ))
-                local _rest="${_params#*;}"
-                SHELLFRAME_MOUSE_COL="${_rest%%;*}"
-                SHELLFRAME_MOUSE_ROW="${_rest#*;}"
-                if [[ "$_k" == *M ]]; then
-                    SHELLFRAME_MOUSE_ACTION="press"
-                else
-                    SHELLFRAME_MOUSE_ACTION="release"
-                fi
+            # SGR mouse: shared validated parser (#46)
+            if _shellframe_parse_sgr_mouse "$_k"; then
                 printf -v "$_out_var" '%s' "$SHELLFRAME_KEY_MOUSE"
                 return 0
             fi

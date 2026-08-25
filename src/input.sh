@@ -124,6 +124,63 @@ SHELLFRAME_KEY_EOF=0
 # given and expired with no input. 1 = timed out; reset to 0 every call.
 SHELLFRAME_KEY_TIMEOUT=0
 
+# Output variable set by _shellframe_parse_sgr_mouse when the event is a
+# motion report (button-mask bit 32). Motion events are parsed then DISCARDED
+# by both readers — hover/drag is #57 scope — but the flag documents what was
+# seen. Reset on every parse.
+SHELLFRAME_MOUSE_MOTION=0
+
+# _shellframe_parse_sgr_mouse <sequence>
+#
+# The single SGR mouse decoder (ESC [ < Pb ; Px ; Py M|m) used by every
+# reader (#46 — the two inline copies had already drifted). Validates that
+# exactly three numeric fields are present; malformed sequences are silently
+# discarded, because a terminal emitting them will emit more and one bad
+# event must never poison the coordinate globals.
+#
+# Motion reports (bit 32) are validated, flagged via SHELLFRAME_MOUSE_MOTION,
+# and discarded: no consumer supports hover yet (#57), and letting bit 32
+# leak into SHELLFRAME_MOUSE_BUTTON surfaced as phantom "button 32" presses.
+#
+# Returns 0 and sets the SHELLFRAME_MOUSE_* globals on a consumable press or
+# release; returns 1 on discard (malformed or motion).
+_shellframe_parse_sgr_mouse() {
+    local _seq="$1"
+    local _sgr_pfx=$'\033[<'
+    SHELLFRAME_MOUSE_MOTION=0
+    SHELLFRAME_MOUSE_ACTION=""
+
+    [[ "$_seq" == "${_sgr_pfx}"* ]] || return 1
+    case "$_seq" in
+        *M) SHELLFRAME_MOUSE_ACTION="press"   ;;
+        *m) SHELLFRAME_MOUSE_ACTION="release" ;;
+        *)  return 1 ;;
+    esac
+
+    local _params="${_seq#"${_sgr_pfx}"}"
+    _params="${_params%[Mm]}"
+    # Quoted via variable: an unquoted regex containing ';' is a parse error
+    local _num_re='^[0-9]+;[0-9]+;[0-9]+$'
+    [[ "$_params" =~ $_num_re ]] || return 1
+
+    local _raw_btn="${_params%%;*}"
+    local _rest="${_params#*;}"
+
+    if (( _raw_btn & 32 )); then
+        SHELLFRAME_MOUSE_MOTION=1
+        return 1   # motion: parsed, flagged, dropped (#46; hover is #57)
+    fi
+
+    SHELLFRAME_MOUSE_SHIFT=$(( (_raw_btn >> 2) & 1 ))
+    SHELLFRAME_MOUSE_META=$(( (_raw_btn >> 3) & 1 ))
+    SHELLFRAME_MOUSE_CTRL=$(( (_raw_btn >> 4) & 1 ))
+    # Clear shift/alt/ctrl/motion bits (4+8+16+32); keep buttons 0-2, wheel 64/65.
+    SHELLFRAME_MOUSE_BUTTON=$(( _raw_btn & ~60 ))
+    SHELLFRAME_MOUSE_COL="${_rest%%;*}"
+    SHELLFRAME_MOUSE_ROW="${_rest#*;}"
+    return 0
+}
+
 # Read one keypress (including full escape sequences) into a variable.
 #
 # Usage:
@@ -210,25 +267,9 @@ shellframe_read_key() {
                     [A-Za-z~]) break ;;
                 esac
             done
-            # SGR mouse: ESC [ < Pb ; Px ; Py M (press) or m (release)
-            # Detect by prefix ESC[< and letter final byte M or m.
-            local _sgr_pfx=$'\x1b[<'
-            if [[ "$_k" == "${_sgr_pfx}"* ]]; then
-                local _params="${_k#"${_sgr_pfx}"}"   # strip ESC[<
-                _params="${_params%[Mm]}"               # strip trailing M or m
-                local _raw_btn="${_params%%;*}"
-                SHELLFRAME_MOUSE_SHIFT=$(( (_raw_btn >> 2) & 1 ))
-                SHELLFRAME_MOUSE_META=$(( (_raw_btn >> 3) & 1 ))
-                SHELLFRAME_MOUSE_CTRL=$(( (_raw_btn >> 4) & 1 ))
-                SHELLFRAME_MOUSE_BUTTON=$(( _raw_btn & ~28 ))
-                local _rest="${_params#*;}"
-                SHELLFRAME_MOUSE_COL="${_rest%%;*}"
-                SHELLFRAME_MOUSE_ROW="${_rest#*;}"
-                if [[ "$_k" == *M ]]; then
-                    SHELLFRAME_MOUSE_ACTION="press"
-                else
-                    SHELLFRAME_MOUSE_ACTION="release"
-                fi
+            # SGR mouse: decode via the shared validated parser (#46).
+            # Malformed and motion events are discarded inside the parser.
+            if _shellframe_parse_sgr_mouse "$_k"; then
                 printf -v "$_out_var" '%s' "$SHELLFRAME_KEY_MOUSE"
                 return 0
             fi
