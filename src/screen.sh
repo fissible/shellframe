@@ -20,6 +20,20 @@
 # considered and skipped in favor of one predictable number per session.
 _SF_TTY_FD="${SHELLFRAME_TTY_FD:-3}"
 
+# Echo a currently-CLOSED fd number usable as a private save slot, skipping
+# the active tty fd. Falls back to fd 4 if every candidate is open (#48).
+_shellframe_pick_save_fd() {
+    local _n
+    for _n in 5 6 7 8 9; do
+        (( _n == _SF_TTY_FD )) && continue
+        if ! { eval "exec $_n>&-" ; } 2>/dev/null; then
+            printf '%s' "$_n"
+            return 0
+        fi
+    done
+    printf '4'
+}
+
 shellframe_screen_enter() {
     # Open a persistent fd to /dev/tty so widgets can write to >&$_SF_TTY_FD
     # instead of >/dev/tty (which opens+closes the file on every write and

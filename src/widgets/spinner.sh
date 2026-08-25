@@ -87,7 +87,9 @@ shellframe_spinner() {
         ) &
         local _anim=$!
     else
-        printf '%s...\n' "$_msg"
+        # stderr, not stdout: the wrapper must not pollute $() capture of the
+        # command's output in non-tty contexts (CI, cron, pipes) — review round 3.
+        printf '%s...\n' "$_msg" >&2
     fi
 
     "$@"

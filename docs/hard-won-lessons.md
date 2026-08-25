@@ -202,22 +202,23 @@ chosen=$(my_tui)             # works correctly
 
 **Symptom:** the v2 shell runtime's original render-coalescing prototype
 (`read -t 0` to check for queued input before drawing) was blamed for a
-"crash in raw terminal mode" and disabled. The real mechanism, reproduced in
-2026-08-25 while re-investigating for #51:
+"crash in raw terminal mode" and disabled.
 
-```bash
-printf 'XYZ'
-IFS= read -r -n1 -d '' -t 0 k   # rc=0, k="" — and XYZ is GONE from the stream
-```
+**Correction (2026-08-25, after reviewer challenge):** an initial re-
+investigation claimed the probe consumes buffered input on bash ≥4; that was
+an artifact of testing against a pipe whose writer had already closed — under
+realistic held-open conditions (fifo/PTY, plain or raw-mode) input survives
+the probe intact on bash 3.2 and 5.x. The consumption claim is withdrawn.
 
-On bash ≥4, a zero-timeout read performs one non-blocking `read()` that
-consumes everything buffered into internal state, then reports an empty value.
-Keystrokes vanish — including bytes mid-escape-sequence, which corrupts every
-subsequent sequence parse. On bash 3.2 the same probe returns 1 *without*
-reading (it silently does nothing), so the bug was invisible there.
+What remains true and load-bearing:
+- `read -t 0` availability semantics are version- and option-dependent
+  (rc=1/no-read on 3.2; rc=0-empty vs rc=0-with-data varies with -n/-d),
+  making any probe-based gate fragile across the matrix.
+- The historical crash was never actually explained.
 
-**Rule:** in pure bash there is no non-consuming input-availability probe.
-Never gate rendering (or anything else) on `read -t 0`. Coalesce with TIME
-instead: defer the draw until `now - last_render` leaves the throttle window,
-and force-flush when the input loop's timed read expires — the queue is then
-provably empty. See `_shellframe_should_defer_render` in `src/shell.sh`.
+The time-based coalescing now shipped is therefore justified on its own
+merits: it never touches the input stream at all, so it is correct regardless
+of probe semantics, and it renders at a bounded rate. See
+`_shellframe_should_defer_render` in `src/shell.sh`. The original crash
+remains open as an unsolved mystery — if it resurfaces, investigate the
+deferred-render path first.

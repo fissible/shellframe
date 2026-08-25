@@ -87,7 +87,11 @@ shellframe_confirm() {
     local _selected=0   # 0 = Yes, 1 = No
 
     # ── fd plumbing ───────────────────────────────────────────────────────────
-    exec 3>&1
+    local _save_fd
+    _save_fd=$(_shellframe_pick_save_fd)
+    eval "exec ${_save_fd}>&1"
+    # Ensure the tty fd exists even though screen_enter runs later.
+    { true >&"$_SF_TTY_FD"; } 2>/dev/null || eval "exec $_SF_TTY_FD>/dev/tty"
     exec 1>&"$_SF_TTY_FD"
 
     # ── cleanup ───────────────────────────────────────────────────────────────
@@ -98,8 +102,8 @@ shellframe_confirm() {
         shellframe_raw_exit "$_cf_saved_stty"
         shellframe_cursor_show
         shellframe_screen_exit
-        { exec 1>&"$_SF_TTY_FD"; } 2>/dev/null || true
-        { eval "exec $_SF_TTY_FD>&-"; } 2>/dev/null || true
+        { eval "exec 1>&${_save_fd}"; } 2>/dev/null || true   # stdout <- save slot
+        { eval "exec ${_save_fd}>&-"; } 2>/dev/null || true   # close the slot
     }
     trap '_cf_exit; exit 1' INT TERM
 
