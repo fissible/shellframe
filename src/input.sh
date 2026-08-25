@@ -120,7 +120,20 @@ SHELLFRAME_MOUSE_CTRL=0
 # Widget loops must check this flag and exit cancelled instead of spinning.
 SHELLFRAME_KEY_EOF=0
 
+# Output variable set by shellframe_read_key when an optional timeout was
+# given and expired with no input. 1 = timed out; reset to 0 every call.
+SHELLFRAME_KEY_TIMEOUT=0
+
 # Read one keypress (including full escape sequences) into a variable.
+#
+# Usage:
+#   local key
+#   shellframe_read_key key              # block until a key arrives
+#   shellframe_read_key key 5            # give up after 5 idle seconds
+#
+# On timeout expiry the output variable is set to "" and
+# SHELLFRAME_KEY_TIMEOUT=1; no data means the caller decides what silence
+# means (e.g. the editor's paste drain treats it as paste-end, #45).
 #
 # Usage:
 #   local key
@@ -141,12 +154,34 @@ SHELLFRAME_KEY_EOF=0
 # follow-on bytes are already in the buffer and return immediately.
 shellframe_read_key() {
     local _out_var="${1:-_SHELLFRAME_KEY}"
-    local _k _c
+    local _timeout="${2:-}"
+    local _k _c _rc=0
+
     SHELLFRAME_KEY_EOF=0
-    IFS= read -r -n1 -d '' _k || { [[ -z "$_k" ]] && SHELLFRAME_KEY_EOF=1; }
-    if (( SHELLFRAME_KEY_EOF )); then
-        printf -v "$_out_var" '%s' ""
-        return 0
+    SHELLFRAME_KEY_TIMEOUT=0
+
+    if [[ -n "$_timeout" ]]; then
+        IFS= read -r -n1 -d '' -t "$_timeout" _k || _rc=$?
+        if [[ -z "$_k" ]]; then
+            # Nothing arrived within the window. bash >=4 separates timer
+            # expiry (>128) from stdin EOF (<=128); bash 3.2 returns 1 for
+            # both, so it reports TIMEOUT (the conservative choice: the
+            # editor paste drain treats both identically, and EOF is still
+            # observed by the next untimed read).
+            if (( BASH_VERSINFO[0] >= 4 )) && (( _rc <= 128 )); then
+                SHELLFRAME_KEY_EOF=1
+            else
+                SHELLFRAME_KEY_TIMEOUT=1
+            fi
+            printf -v "$_out_var" '%s' ""
+            return 0
+        fi
+    else
+        IFS= read -r -n1 -d '' _k || { [[ -z "$_k" ]] && SHELLFRAME_KEY_EOF=1; }
+        if (( SHELLFRAME_KEY_EOF )); then
+            printf -v "$_out_var" '%s' ""
+            return 0
+        fi
     fi
     if [[ "$_k" == $'\x1b' ]]; then
         IFS= read -r -n1 -d '' -t 1 _c
