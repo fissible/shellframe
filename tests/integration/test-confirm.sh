@@ -47,4 +47,12 @@ ptyunit_test_begin "confirm: Esc key — cancelled"
 out=$(_pty ESC)
 assert_contains "$out" "Cancelled"
 
+
+# ── #44 review follow-up: confirm exits cancelled on stdin EOF ───────────────
+
+ptyunit_test_begin "confirm #44: detached stdin exits promptly with rc=1"
+_ce_rc=0
+out=$( python3 "$PTY_RUN" "$SHELLFRAME_DIR/tests/fixtures/confirm-eof.sh" ) || _ce_rc=$?
+assert_contains "$out" "confirm-rc:1"
+assert_eq "0" "$_ce_rc"
 ptyunit_test_summary

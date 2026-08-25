@@ -16,12 +16,12 @@
 # Usage:
 #   local raw="~/bin/gflow"
 #   local rendered="${GRAY}~/bin/${RESET}${BOLD}gflow${RESET}"
-#   printf '%b' "$(shellframe_pad_left "$raw" "$rendered" 20)"
+#   printf '%s' "$(shellframe_pad_left "$raw" "$rendered" 20)"
 shellframe_pad_left() {
     local raw="$1" rendered="$2" width="$3"
     local pad=$(( width - ${#raw} ))
     (( pad < 0 )) && pad=0
-    printf '%b%*s' "$rendered" "$pad" ''
+    printf '%s%*s' "$rendered" "$pad" ''
 }
 
 # ── Color constants ───────────────────────────────────────────────────────────

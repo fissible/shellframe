@@ -348,13 +348,33 @@ _shellframe_shell_draw_if_dirty() {
 
 _shellframe_shell_read_key() {
     local _out_var="${1:-_SHELLFRAME_KEY}"
-    local _k="" _c=""
+    local _k="" _c="" _rc=0
+    _SHELLFRAME_KEY_EOF=0
 
-    # Timeout: 1 second.  If SIGWINCH fires, bash 3.2 on macOS will NOT
-    # interrupt read, but the 1s timeout ensures we re-check the flag.
-    IFS= read -r -n1 -d '' -t 1 _k || true
+    # Timeout handling — VERSION-DEPENDENT semantics (#44):
+    #   bash >= 4.0: timer expiry returns >128; stdin EOF returns <=128.
+    #                The return code alone discriminates reliably.
+    #   bash 3.2:    BOTH return 1 (verified against /bin/bash 3.2). The
+    #                discriminator is TIME: EOF returns instantly while a
+    #                timer expiry consumes the full window. So on 3.2 the
+    #                window is widened to 2 s and measured with date +%s —
+    #                an instant failure (delta 0) is EOF; anything that
+    #                consumed seconds is a timeout/SIGWINCH tick. A false
+    #                EOF here would quit the runtime during ordinary idling.
+    if (( BASH_VERSINFO[0] >= 4 )); then
+        _sf_read_t=1
+    else
+        _sf_read_t=2
+        _sf_t0=$(date +%s)
+    fi
+    IFS= read -r -n1 -d '' -t "$_sf_read_t" _k || _rc=$?
 
     if [[ -z "$_k" ]]; then
+        if (( BASH_VERSINFO[0] >= 4 )); then
+            (( _rc > 0 && _rc <= 128 )) && _SHELLFRAME_KEY_EOF=1
+        elif (( _rc > 0 )) && (( $(date +%s) - _sf_t0 < 2 )); then
+            _SHELLFRAME_KEY_EOF=1   # failed instantly — stdin reached EOF
+        fi
         printf -v "$_out_var" '%s' ""
         return 0
     fi
@@ -406,6 +426,7 @@ shellframe_shell() {
     local _prefix="$1"
     local _current="${2:-ROOT}"
     _SHELLFRAME_SHELL_RUNNING=1
+    _SHELLFRAME_SHELL_EOF=0
 
     local _saved_stty
     _saved_stty=$(shellframe_raw_save)
@@ -440,7 +461,24 @@ shellframe_shell() {
             } >> /tmp/shql-crash.log 2>/dev/null
         fi
     }
-    trap "_shellframe_shell_cleanup '$_saved_stty'" EXIT INT TERM
+    # Preserve any caller-installed EXIT/INT/TERM traps (review 2026-08-24):
+    # shellframe is sourced by other tools, and unconditionally leaving our
+    # traps installed after the runtime returns would silently drop the
+    # host script's own teardown. Contract: while the runtime is active it
+    # owns these signals (its cleanup must win); on normal return the
+    # caller's traps are restored verbatim below. Caller traps do NOT fire
+    # for signals that terminate the runtime abnormally mid-session.
+    _SF_PREV_EXIT_TRAP=$(trap -p EXIT)
+    _SF_PREV_INT_TRAP=$(trap -p INT)
+    _SF_PREV_TERM_TRAP=$(trap -p TERM)
+
+    # EXIT alone runs cleanup on normal termination and on any error unwind.
+    # INT/TERM additionally restore-and-exit with the conventional signal exit
+    # codes (#43): traps are cleared first so the pending EXIT trap does not
+    # double-run cleanup.
+    trap "_shellframe_shell_cleanup '$_saved_stty'" EXIT
+    trap "trap - EXIT INT TERM WINCH; _shellframe_shell_cleanup '$_saved_stty'; exit 130" INT
+    trap "trap - EXIT INT TERM WINCH; _shellframe_shell_cleanup '$_saved_stty'; exit 143" TERM
 
     local _k_tab="${SHELLFRAME_KEY_TAB:-$'\t'}"
     local _k_shift_tab="${SHELLFRAME_KEY_SHIFT_TAB:-$'\033[Z'}"
@@ -476,6 +514,12 @@ shellframe_shell() {
 
             local _key=""
             _shellframe_shell_read_key _key
+            # Stdin EOF (tty detached, stdin redirected closed): quit the
+            # runtime cleanly with a non-zero status instead of spinning (#44).
+            if (( ${_SHELLFRAME_KEY_EOF:-0} )); then
+                _SHELLFRAME_SHELL_EOF=1
+                _current="__QUIT__"; _screen_done=1; continue
+            fi
             if [[ -z "$_key" ]]; then
                 # Timeout: tick toasts so they expire even when user is idle
                 if (( ${#_SHELLFRAME_TOAST_QUEUE[@]} > 0 )); then
@@ -660,4 +704,13 @@ shellframe_shell() {
     elif [[ -w /dev/tty ]]; then
         printf '\033[?2004l\033[?1006l\033[?1000l\033[?25h\033[?1049l' >/dev/tty 2>/dev/null
     fi
+    # Hand the caller's own EXIT/INT/TERM traps back (saved at entry) so host
+    # scripts keep their teardown after the runtime returns.
+    [[ -n "$_SF_PREV_EXIT_TRAP" ]] && eval "$_SF_PREV_EXIT_TRAP"
+    [[ -n "$_SF_PREV_INT_TRAP" ]] && eval "$_SF_PREV_INT_TRAP"
+    [[ -n "$_SF_PREV_TERM_TRAP" ]] && eval "$_SF_PREV_TERM_TRAP"
+    # Stdin EOF quit (#44): report non-zero so callers can distinguish a
+    # clean user exit from the runtime losing its input source.
+    (( ${_SHELLFRAME_SHELL_EOF:-0} )) && return 1
+    return 0
 }

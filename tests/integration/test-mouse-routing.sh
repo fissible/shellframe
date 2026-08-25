@@ -70,4 +70,33 @@ ptyunit_test_begin "mouse-routing: scroll-down then click visible row selects co
 out=$(_pty $'\x1b[<65;1;1M' ENTER)
 assert_contains "$out" "Selected: apple"
 
+# ── #43: Ctrl-C exits the shell runtime cleanly ──────────────────────────────
+# With stty isig (default), \x03 raises SIGINT. The runtime must restore the
+# terminal and exit 130 — not keep running with a restored/broken terminal.
+
+ptyunit_test_begin "shell-runtime #43: Ctrl-C mid-loop exits 130"
+# --expect holds the keystroke until the list has actually rendered, so the
+# \x03 cannot land in the PTY input buffer before the fixture's stty/trap
+# setup completes (race observed under parallel-suite load).
+_irc=0
+_out=$( _pty "--expect" "apple" $'\x03' ) || _irc=$?
+assert_eq "130" "$_irc"
+assert_not_null "$_out"
+
+# ── #44: stdin EOF quits the runtime instead of busy-spinning ────────────────
+
+ptyunit_test_begin "shell-runtime #44: stdin EOF exits promptly with rc=1"
+_eof_rc=0
+_eout=$( python3 "$PTY_RUN" "$SHELLFRAME_DIR/tests/fixtures/shell-eof.sh" ) || _eof_rc=$?
+assert_contains "$_eout" "shell-returned:1"
+assert_eq "0" "$_eof_rc"
+ptyunit_test_summary
+
+# ── #44 follow-up (review): idle survival then clean EOF quit ────────────────
+
+ptyunit_test_begin "shell-runtime #44b: survives idle ticks, quits on later EOF"
+_ie_rc=0
+_ieout=$( python3 "$PTY_RUN" "$SHELLFRAME_DIR/tests/fixtures/shell-idle-eof.sh" ) || _ie_rc=$?
+assert_contains "$_ieout" "idle-shell-returned:1"
+assert_eq "0" "$_ie_rc"
 ptyunit_test_summary

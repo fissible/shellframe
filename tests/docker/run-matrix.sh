@@ -21,9 +21,18 @@ if ! command -v docker >/dev/null 2>&1; then
 fi
 
 # Resolve ptyunit installation to mount into containers (no Homebrew inside Alpine)
-_ptyunit_host=$(brew --prefix ptyunit 2>/dev/null)/libexec
-if [[ ! -f "$_ptyunit_host/run.sh" ]]; then
-    printf 'error: ptyunit not found at %s\n' "$_ptyunit_host" >&2
+# Prefer a sibling checkout (fissible workspace layout — also lives under /Users,
+# which Docker Desktop shares by default; /opt/homebrew is typically NOT shared
+# and makes the mount fail with "Mounts denied"), fall back to Homebrew.
+# This file lives at <repo>/tests/docker/: the workspace parent is three levels up.
+_ptyunit_host=""
+if [[ -f "$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)/ptyunit/run.sh" ]]; then
+    _ptyunit_host="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)/ptyunit"
+elif _prefix=$(brew --prefix ptyunit 2>/dev/null); then
+    _ptyunit_host="$_prefix/libexec"
+fi
+if [[ -z "$_ptyunit_host" ]] || [[ ! -f "$_ptyunit_host/run.sh" ]]; then
+    printf 'error: ptyunit not found (sibling checkout or brew)\n' >&2
     printf 'Run: bash bootstrap.sh\n' >&2
     exit 1
 fi

@@ -136,6 +136,22 @@ Call inside a `shellframe_raw_enter` session. Compare results against the
 Uses `read -d ''` (NUL delimiter) so Enter (`\n`) is captured rather
 than consumed as the line terminator (see [Hard-won lessons](hard-won-lessons.md#7-bash-read-converts-r-to-n-internally--use-read--d--for-enter)).
 
+Sets `SHELLFRAME_KEY_EOF=1` when stdin has reached EOF; widget loops must
+check it and exit cancelled — looping on an EOF read spins at 100% CPU (#44).
+
+**Exit/return-code contracts**
+
+| Call | Returns |
+|---|---|
+| `shellframe_confirm` | 0 = yes, 1 = no/cancelled (incl. stdin EOF) |
+| `shellframe_action_list`, `shellframe_table` | 0 = confirmed, 1 = quit (incl. stdin EOF) |
+| `shellframe_shell` | 0 = user exited normally, 1 = stdin EOF (runtime lost its input source) |
+| `shellframe_app` | 1 + stderr diagnostic on misconfiguration (unknown screen, missing render/handler, handler that never sets `_SHELLFRAME_APP_NEXT`) |
+
+While a runtime is active it owns EXIT/INT/TERM trap handling (terminal
+state must be restored even on crashes); the caller's own traps are saved at
+entry and restored verbatim on normal return.
+
 ---
 
 ## `src/draw.sh`
@@ -149,7 +165,7 @@ so its `${#raw}` byte count equals its visible character count.
 ```bash
 local raw="~/bin/gflow"
 local rendered="${SHELLFRAME_GRAY}~/bin/${SHELLFRAME_RESET}${SHELLFRAME_BOLD}gflow${SHELLFRAME_RESET}"
-printf '%b' "$(shellframe_pad_left "$raw" "$rendered" 20)"
+printf '%s' "$(shellframe_pad_left "$raw" "$rendered" 20)"
 ```
 
 Color constants `SHELLFRAME_BOLD`, `SHELLFRAME_RESET`, `SHELLFRAME_GREEN`, `SHELLFRAME_RED`,

@@ -57,7 +57,7 @@ _shellframe_al_default_draw_row() {
     local -a _dacts
     IFS=' ' read -r -a _dacts < <(printf '%s\n' "$_dacts_str")
     local _daction="${_dacts[$_daidx]}"
-    printf "%b%-24s  [%s]\n" "$_dcursor" "$_dlabel" "$_daction"
+    printf "%s%-24s  [%s]\n" "$_dcursor" "$_dlabel" "$_daction"
 }
 
 # _shellframe_action_list_on_key key n_items
@@ -188,6 +188,11 @@ shellframe_action_list() {
         local _key _krc
         _prev_sel=$SHELLFRAME_AL_SELECTED
         shellframe_read_key _key
+
+        # stdin EOF: quit cancelled instead of spinning (#44)
+        if (( ${SHELLFRAME_KEY_EOF:-0} )); then
+            _al_retval=1; break
+        fi
 
         _shellframe_action_list_on_key "$_key" "$_n"
         _krc=$?

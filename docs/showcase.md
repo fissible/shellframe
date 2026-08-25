@@ -110,7 +110,7 @@ _draw_row() {
     (( i == SHELLFRAME_AL_SELECTED )) && cursor="> "
     local -a acts; IFS=' ' read -r -a acts <<< "$acts_str"
     local action="${acts[$aidx]}"
-    printf "%b%-14s  [ %-8s]\n" "$cursor" "$label" "$action"
+    printf "%s%-14s  [ %-8s]\n" "$cursor" "$label" "$action"
 }
 
 shellframe_action_list "_draw_row" "" \

@@ -1077,9 +1077,16 @@ shellframe_editor_on_key() {
     if [[ "$_key" == "$_k_paste_start" ]]; then
         # Bracketed paste: drain all keys until paste-end, then insert as one
         # batch — single ensure_visible / vmap rebuild at the end.
+        # stdin EOF ends the drain too (#44) — otherwise a lost paste-end
+        # marker would consume keystrokes forever.
         local _paste_buf="" _paste_key=""
         while true; do
             shellframe_read_key _paste_key
+            if (( ${SHELLFRAME_KEY_EOF:-0} )); then
+                # stdin vanished mid-paste: keep what the editor already had,
+                # do NOT submit (rc=2) or report unhandled (rc=1)
+                shellframe_shell_mark_dirty; return 0
+            fi
             [[ "$_paste_key" == "$_k_paste_end" ]] && break
             _paste_buf="${_paste_buf}${_paste_key}"
         done

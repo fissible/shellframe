@@ -89,7 +89,7 @@ _shellframe_tbl_default_draw_row() {
     local -a _dacts
     IFS=' ' read -r -a _dacts <<< "$_dacts_str"
     local _daction="${_dacts[$_daidx]}"
-    printf "%b%-24s  [%s]" "$_dcursor" "$_dlabel" "$_daction"
+    printf "%s%-24s  [%s]" "$_dcursor" "$_dlabel" "$_daction"
 }
 SHELLFRAME_TBL_SAVED_STTY=""
 SHELLFRAME_TBL_COLS=0
@@ -238,27 +238,27 @@ shellframe_table() {
             local _content_top=1
             local _fi
             if [[ -n "$SHELLFRAME_TBL_PAGE_TITLE" || -n "$SHELLFRAME_TBL_PAGE_H1" ]]; then
-                printf '\033[1;1H%b%b %s\033[K%b' \
+                printf '\033[1;1H%s%s %s\033[K%s' \
                     "$SHELLFRAME_REVERSE" "$SHELLFRAME_BOLD" \
                     "$SHELLFRAME_TBL_PAGE_TITLE" \
                     "$SHELLFRAME_RESET"
-                printf '\033[2;1H%b %s%b' \
+                printf '\033[2;1H%s %s%s' \
                     "$SHELLFRAME_BOLD$SHELLFRAME_WHITE" \
                     "$SHELLFRAME_TBL_PAGE_H1" \
                     "$SHELLFRAME_RESET"
-                printf '\033[3;1H%b' "$SHELLFRAME_GRAY"
+                printf '\033[3;1H%s' "$SHELLFRAME_GRAY"
                 for (( _fi=0; _fi<_cols; _fi++ )); do printf '─'; done
-                printf '%b' "$SHELLFRAME_RESET"
+                printf '%s' "$SHELLFRAME_RESET"
                 _content_top=4
             fi
 
             # ── Page chrome: bottom ───────────────────────────────────────
             local _content_bottom=$_rows
             if [[ -n "$SHELLFRAME_TBL_PAGE_FOOTER" ]]; then
-                printf '\033[%d;1H%b' "$(( _rows - 1 ))" "$SHELLFRAME_GRAY"
+                printf '\033[%d;1H%s' "$(( _rows - 1 ))" "$SHELLFRAME_GRAY"
                 for (( _fi=0; _fi<_cols; _fi++ )); do printf '─'; done
-                printf '%b' "$SHELLFRAME_RESET"
-                printf '\033[%d;1H%b %s\033[K%b' \
+                printf '%s' "$SHELLFRAME_RESET"
+                printf '\033[%d;1H%s %s\033[K%s' \
                     "$_rows" \
                     "$SHELLFRAME_GRAY" \
                     "$SHELLFRAME_TBL_PAGE_FOOTER" \
@@ -299,13 +299,13 @@ shellframe_table() {
                 for (( _hi=0; _hi<_n_headers; _hi++ )); do
                     local _hdr="${SHELLFRAME_TBL_HEADERS[$_hi]}"
                     local _hw="${SHELLFRAME_TBL_COL_WIDTHS[$_hi]:-${#_hdr}}"
-                    printf '%b%-*s%b' \
+                    printf '%s%-*s%s' \
                         "$SHELLFRAME_BOLD$SHELLFRAME_WHITE" "$_hw" "$_hdr" \
                         "$SHELLFRAME_RESET"
                 done
-                printf '\033[%d;1H  %b' "$(( _content_top + 1 ))" "$SHELLFRAME_GRAY"
+                printf '\033[%d;1H  %s' "$(( _content_top + 1 ))" "$SHELLFRAME_GRAY"
                 for (( _fi=0; _fi<_table_width-2; _fi++ )); do printf '─'; done
-                printf '%b' "$SHELLFRAME_RESET"
+                printf '%s' "$SHELLFRAME_RESET"
             fi
 
             # ── Data rows ─────────────────────────────────────────────────
@@ -338,14 +338,14 @@ shellframe_table() {
                 fi
             done
 
-            printf '\033[%d;1H\033[2K  %b%s%b' \
+            printf '\033[%d;1H\033[2K  %s%s%s' \
                 "$_hint_row" \
                 "$SHELLFRAME_GRAY" "$_footer" "$SHELLFRAME_RESET"
 
             if (( _show_panel )); then
                 local _sep_row
                 for (( _sep_row=_content_top; _sep_row<=_content_bottom; _sep_row++ )); do
-                    printf '\033[%d;%dH%b│%b' \
+                    printf '\033[%d;%dH%s│%s' \
                         "$_sep_row" "$(( _table_width + 1 ))" \
                         "$SHELLFRAME_GRAY" "$SHELLFRAME_RESET"
                 done
@@ -355,9 +355,9 @@ shellframe_table() {
             fi
 
             if (( _below_total > 0 )) && [[ -n "$SHELLFRAME_TBL_BELOW_FN" ]]; then
-                printf '\033[%d;1H\033[2K  %b' "$(( _hint_row + 1 ))" "$SHELLFRAME_GRAY"
+                printf '\033[%d;1H\033[2K  %s' "$(( _hint_row + 1 ))" "$SHELLFRAME_GRAY"
                 for (( _fi=0; _fi<_table_width-2; _fi++ )); do printf '─'; done
-                printf '%b' "$SHELLFRAME_RESET"
+                printf '%s' "$SHELLFRAME_RESET"
                 "$SHELLFRAME_TBL_BELOW_FN" \
                     "$(( _hint_row + 2 ))" 1 "$_cols" "$_below_rows"
             fi
@@ -410,6 +410,11 @@ shellframe_table() {
         local _key
         _prev_sel=$SHELLFRAME_TBL_SELECTED   # snapshot before key handling
         shellframe_read_key _key
+
+        # stdin EOF: quit cancelled instead of spinning (#44)
+        if (( ${SHELLFRAME_KEY_EOF:-0} )); then
+            _tbl_retval=1; break
+        fi
 
         _shellframe_table_on_key "$_key" "$_n"
         local _krc=$?
