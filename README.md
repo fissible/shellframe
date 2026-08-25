@@ -6,6 +6,13 @@ clean data to the caller.
 
 **Requirements:** bash 3.2+ (macOS default), a VT100-compatible terminal.
 
+> **Character-width limitation:** layout assumes single-column characters.
+> Wide characters (CJK, emoji) render in two terminal columns and combining
+> marks add none, but `shellframe_str_len` and every aligned surface (panel
+> borders, table/grid columns, diff panes) count code points — so such text
+> will misalign borders. ASCII and most Latin text is unaffected; a
+> width-aware `shellframe_str_width` is tracked in #54.
+
 ---
 
 ## Design goals

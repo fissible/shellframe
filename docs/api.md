@@ -4,6 +4,11 @@
 
 ## `src/clip.sh`
 
+> **Width model:** all clip/pad/length helpers count **code points**
+> (`${#var}`), not terminal columns. Wide characters (CJK, emoji → 2 columns)
+> and combining marks (→ 0) will misalign bordered/columnar layouts. Scope
+> and the proposed width-aware API are tracked in #54.
+
 String measurement and clipping utilities using the **raw + rendered** convention:
 `raw` is the plain-text version of the string (no ANSI codes) — its byte length
 equals its visible character count. `rendered` is the same content with ANSI
