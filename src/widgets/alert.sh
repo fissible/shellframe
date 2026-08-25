@@ -54,20 +54,20 @@ _shellframe_alert_render() {
     local _i
 
     # top border
-    printf '\033[%d;%dH%b+' "$_row" "$_c0" "$SHELLFRAME_GRAY" >&3
+    printf '\033[%d;%dH%s+' "$_row" "$_c0" "$SHELLFRAME_GRAY" >&3
     for (( _i=0; _i<_inner; _i++ )); do printf '-' >&3; done
-    printf '+%b' "$SHELLFRAME_RESET" >&3
+    printf '+%s' "$SHELLFRAME_RESET" >&3
     (( _row++ ))
 
     # blank
-    printf '\033[%d;%dH%b|%*s|%b' "$_row" "$_c0" "$SHELLFRAME_GRAY" "$_inner" "" "$SHELLFRAME_RESET" >&3
+    printf '\033[%d;%dH%s|%*s|%s' "$_row" "$_c0" "$SHELLFRAME_GRAY" "$_inner" "" "$SHELLFRAME_RESET" >&3
     (( _row++ ))
 
     # title (centered, bold)
     local _tl="${#_title}"
     local _tlpad=$(( (_inner - _tl) / 2 ))
     local _trpad=$(( _inner - _tl - _tlpad ))
-    printf '\033[%d;%dH%b|%b%*s%b%s%b%*s%b|%b' \
+    printf '\033[%d;%dH%s|%s%*s%s%s%s%*s%s|%s' \
         "$_row" "$_c0" \
         "$SHELLFRAME_GRAY" "$SHELLFRAME_RESET" \
         "$_tlpad" "" \
@@ -77,7 +77,7 @@ _shellframe_alert_render() {
     (( _row++ ))
 
     # blank
-    printf '\033[%d;%dH%b|%*s|%b' "$_row" "$_c0" "$SHELLFRAME_GRAY" "$_inner" "" "$SHELLFRAME_RESET" >&3
+    printf '\033[%d;%dH%s|%*s|%s' "$_row" "$_c0" "$SHELLFRAME_GRAY" "$_inner" "" "$SHELLFRAME_RESET" >&3
     (( _row++ ))
 
     # detail lines
@@ -86,28 +86,28 @@ _shellframe_alert_render() {
             local _ll="${#_line}"
             local _rpad=$(( _inner - _ll - 2 ))
             (( _rpad < 0 )) && _rpad=0
-            printf '\033[%d;%dH%b|%b  %s%*s%b|%b' \
+            printf '\033[%d;%dH%s|%s  %s%*s%s|%s' \
                 "$_row" "$_c0" \
                 "$SHELLFRAME_GRAY" "$SHELLFRAME_RESET" \
                 "$_line" "$_rpad" "" \
                 "$SHELLFRAME_GRAY" "$SHELLFRAME_RESET" >&3
             (( _row++ ))
         done
-        printf '\033[%d;%dH%b|%*s|%b' "$_row" "$_c0" "$SHELLFRAME_GRAY" "$_inner" "" "$SHELLFRAME_RESET" >&3
+        printf '\033[%d;%dH%s|%*s|%s' "$_row" "$_c0" "$SHELLFRAME_GRAY" "$_inner" "" "$SHELLFRAME_RESET" >&3
         (( _row++ ))
     fi
 
     # bottom border
-    printf '\033[%d;%dH%b+' "$_row" "$_c0" "$SHELLFRAME_GRAY" >&3
+    printf '\033[%d;%dH%s+' "$_row" "$_c0" "$SHELLFRAME_GRAY" >&3
     for (( _i=0; _i<_inner; _i++ )); do printf '-' >&3; done
-    printf '+%b' "$SHELLFRAME_RESET" >&3
+    printf '+%s' "$SHELLFRAME_RESET" >&3
     (( _row++ ))
 
     # footer hint
     local _hint="Any key to continue"
     local _hcol=$(( _c0 + (_box_w - ${#_hint}) / 2 ))
     (( _hcol < 1 )) && _hcol=1
-    printf '\033[%d;%dH%b%s%b' "$_row" "$_hcol" "$SHELLFRAME_GRAY" "$_hint" "$SHELLFRAME_RESET" >&3
+    printf '\033[%d;%dH%s%s%s' "$_row" "$_hcol" "$SHELLFRAME_GRAY" "$_hint" "$SHELLFRAME_RESET" >&3
 }
 
 shellframe_alert() {

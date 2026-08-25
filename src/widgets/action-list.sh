@@ -57,7 +57,7 @@ _shellframe_al_default_draw_row() {
     local -a _dacts
     IFS=' ' read -r -a _dacts < <(printf '%s\n' "$_dacts_str")
     local _daction="${_dacts[$_daidx]}"
-    printf "%b%-24s  [%s]\n" "$_dcursor" "$_dlabel" "$_daction"
+    printf "%s%-24s  [%s]\n" "$_dcursor" "$_dlabel" "$_daction"
 }
 
 # _shellframe_action_list_on_key key n_items

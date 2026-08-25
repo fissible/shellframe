@@ -49,9 +49,9 @@ _shellframe_confirm_draw_buttons() {
     local _brpad=$(( _inner - _btn_raw - _blpad ))
     (( _blpad < 1 )) && _blpad=1
     (( _brpad < 0 )) && _brpad=0
-    printf '\033[%d;%dH%b|%b' "$_brow" "$_c0" "$SHELLFRAME_GRAY" "$SHELLFRAME_RESET"
-    printf '%*s%b      %b%*s' "$_blpad" "" "$_yes_str" "$_no_str" "$_brpad" ""
-    printf '%b|%b' "$SHELLFRAME_GRAY" "$SHELLFRAME_RESET"
+    printf '\033[%d;%dH%s|%s' "$_brow" "$_c0" "$SHELLFRAME_GRAY" "$SHELLFRAME_RESET"
+    printf '%*s%s      %s%*s' "$_blpad" "" "$_yes_str" "$_no_str" "$_brpad" ""
+    printf '%s|%s' "$SHELLFRAME_GRAY" "$SHELLFRAME_RESET"
 }
 
 # _shellframe_confirm_on_key key
@@ -161,13 +161,13 @@ shellframe_confirm() {
             local _i
 
             # top border
-            printf '\033[%d;%dH%b+' "$_row" "$_c0" "$SHELLFRAME_GRAY"
+            printf '\033[%d;%dH%s+' "$_row" "$_c0" "$SHELLFRAME_GRAY"
             for (( _i=0; _i<_inner; _i++ )); do printf '-'; done
-            printf '+%b' "$SHELLFRAME_RESET"
+            printf '+%s' "$SHELLFRAME_RESET"
             (( _row++ ))
 
             # blank
-            printf '\033[%d;%dH%b|%*s|%b' "$_row" "$_c0" "$SHELLFRAME_GRAY" "$_inner" "" "$SHELLFRAME_RESET"
+            printf '\033[%d;%dH%s|%*s|%s' "$_row" "$_c0" "$SHELLFRAME_GRAY" "$_inner" "" "$SHELLFRAME_RESET"
             (( _row++ ))
 
             # detail lines
@@ -177,7 +177,7 @@ shellframe_confirm() {
                     local _ll="${#_line}"
                     local _rpad=$(( _inner - _ll - 2 ))
                     (( _rpad < 0 )) && _rpad=0
-                    printf '\033[%d;%dH%b|%b  %s%*s%b|%b' \
+                    printf '\033[%d;%dH%s|%s  %s%*s%s|%s' \
                         "$_row" "$_c0" \
                         "$SHELLFRAME_GRAY" "$SHELLFRAME_RESET" \
                         "$_line" "$_rpad" "" \
@@ -185,7 +185,7 @@ shellframe_confirm() {
                     (( _row++ ))
                 done
                 # blank separator
-                printf '\033[%d;%dH%b|%*s|%b' "$_row" "$_c0" "$SHELLFRAME_GRAY" "$_inner" "" "$SHELLFRAME_RESET"
+                printf '\033[%d;%dH%s|%*s|%s' "$_row" "$_c0" "$SHELLFRAME_GRAY" "$_inner" "" "$SHELLFRAME_RESET"
                 (( _row++ ))
             fi
 
@@ -193,7 +193,7 @@ shellframe_confirm() {
             local _ql="${#_question}"
             local _qlpad=$(( (_inner - _ql) / 2 ))
             local _qrpad=$(( _inner - _ql - _qlpad ))
-            printf '\033[%d;%dH%b|%b%*s%b%s%b%*s%b|%b' \
+            printf '\033[%d;%dH%s|%s%*s%s%s%s%*s%s|%s' \
                 "$_row" "$_c0" \
                 "$SHELLFRAME_GRAY" "$SHELLFRAME_RESET" \
                 "$_qlpad" "" \
@@ -203,7 +203,7 @@ shellframe_confirm() {
             (( _row++ ))
 
             # blank
-            printf '\033[%d;%dH%b|%*s|%b' "$_row" "$_c0" "$SHELLFRAME_GRAY" "$_inner" "" "$SHELLFRAME_RESET"
+            printf '\033[%d;%dH%s|%*s|%s' "$_row" "$_c0" "$SHELLFRAME_GRAY" "$_inner" "" "$SHELLFRAME_RESET"
             (( _row++ ))
 
             # buttons (row == _btn_row)
@@ -211,20 +211,20 @@ shellframe_confirm() {
             (( _row++ ))
 
             # blank
-            printf '\033[%d;%dH%b|%*s|%b' "$_row" "$_c0" "$SHELLFRAME_GRAY" "$_inner" "" "$SHELLFRAME_RESET"
+            printf '\033[%d;%dH%s|%*s|%s' "$_row" "$_c0" "$SHELLFRAME_GRAY" "$_inner" "" "$SHELLFRAME_RESET"
             (( _row++ ))
 
             # bottom border
-            printf '\033[%d;%dH%b+' "$_row" "$_c0" "$SHELLFRAME_GRAY"
+            printf '\033[%d;%dH%s+' "$_row" "$_c0" "$SHELLFRAME_GRAY"
             for (( _i=0; _i<_inner; _i++ )); do printf '-'; done
-            printf '+%b' "$SHELLFRAME_RESET"
+            printf '+%s' "$SHELLFRAME_RESET"
             (( _row++ ))
 
             # footer hint
             local _hint="←/→ select   y/n quick   Enter confirm"
             local _hcol=$(( _c0 + (_box_w - ${#_hint}) / 2 ))
             (( _hcol < 1 )) && _hcol=1
-            printf '\033[%d;%dH%b%s%b' "$_row" "$_hcol" "$SHELLFRAME_GRAY" "$_hint" "$SHELLFRAME_RESET"
+            printf '\033[%d;%dH%s%s%s' "$_row" "$_hcol" "$SHELLFRAME_GRAY" "$_hint" "$SHELLFRAME_RESET"
 
         else
             # ── Partial redraw (_dirty=1): button row only ─────────────────

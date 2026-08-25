@@ -132,4 +132,26 @@ SHELLFRAME_AL_SELECTED=0
 _out=$(_shellframe_al_default_draw_row 0 "apple" "eat skip" 0 "")
 assert_contains "$_out" "[eat]" "action index 0 shows eat"
 
+# ── #42: %b escape-injection regression ─────────────────────────────────────
+# A consumer may define color constants with literal backslash notation
+# (SHELLFRAME_BOLD='\033[1m'). Row rendering must pass strings through %s so
+# backslashes stay literal — never re-interpreted via %b.
+
+_sf_al_saved_bold="$SHELLFRAME_BOLD"
+_sf_al_saved_reset="$SHELLFRAME_RESET"
+SHELLFRAME_BOLD='\033[1m'
+SHELLFRAME_RESET='\033[0m'
+
+ptyunit_test_begin "al draw_row #42: literal-backslash colors render literally"
+_out=$(_shellframe_al_default_draw_row 0 "apple" "eat skip" 0 "")
+assert_contains "$_out" '\033[1m' "literal backslash sequence preserved"
+if [[ "$_out" != *$'\x1b'* ]]; then
+    ptyunit_pass
+else
+    ptyunit_fail "real ESC byte injected into output (escape expansion)"
+fi
+
+SHELLFRAME_BOLD="$_sf_al_saved_bold"
+SHELLFRAME_RESET="$_sf_al_saved_reset"
+
 ptyunit_test_summary
