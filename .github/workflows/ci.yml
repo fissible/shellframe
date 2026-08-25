@@ -11,4 +11,6 @@ jobs:
     uses: fissible/.github/.github/workflows/test-bash.yml@main
     with:
       bootstrap-command: bash bootstrap.sh
-      test-command: bash tests/run.sh
+      # UTF-8 locale so collation-sensitive paths (case-pattern ranges) match
+      # real Macs — CI's default environment is C, which hid a sanitizer bug.
+      test-command: LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 bash tests/run.sh

@@ -38,4 +38,39 @@ ptyunit_test_begin "editor: Ctrl-U clears to start of line; prefix text is submi
 out=$(_pty h e l l o w o r l d LEFT LEFT LEFT LEFT LEFT '\x15' '\x04')
 assert_contains "$out" "world"
 
+
+# ── #45: bracketed-paste bounds and sanitization ──────────────────────────────
+
+# Exported so both the pty_run child AND the fixture inherit them
+# (env-prefixing a shell function would not reach either).
+_pty_paste() {
+    ( export PTY_TIMEOUT=5 SHELLFRAME_EDITOR_PASTE_SILENCE_LIMIT=1
+      python3 "$PTY_RUN" "$SCRIPT" "$@" 2>/dev/null )
+}
+
+ptyunit_test_begin "editor #45: lost paste terminator — drain ends on silence, text survives"
+# Send ESC[200~ + text and NEVER send ESC[201~: the drain must end after
+# SHELLFRAME_EDITOR_PASTE_SILENCE_LIMIT seconds of silence and insert what it
+# gathered. Recovery is asserted via the status line moving to col 7
+# (6 pasted chars): a submit keystroke cannot follow in this scenario —
+# everything sent after a lost terminator is legitimately absorbed as
+# paste content until the silence window fires.
+out=$(_pty_paste $'\x1b[200~' p a s t e d)
+assert_contains "$out" "col 7"
+
+ptyunit_test_begin "editor #45: pasted ANSI escapes are stripped before insertion"
+# pty_run strips ANSI from its capture, so a plain assertion is vacuous —
+# it passes even with sanitization disabled. Capture RAW output instead and
+# assert the injected SGR never reaches stdout through the submitted result.
+# (The editor chrome emits reverse-video/dim, never red foreground.)
+_raw_out=$( export PTY_TIMEOUT=15 SHELLFRAME_EDITOR_PASTE_SILENCE_LIMIT=5
+            PTY_RAW=1 python3 "$PTY_RUN" "$SCRIPT" $'\x1b[200~' $'a\033[31mb' $'\x1b[201~' '\x04' 2>/dev/null )
+if printf '%s' "$_raw_out" | grep -q $'\033[31m'; then
+    ptyunit_fail "injected SGR survived into submitted text"
+else
+    ptyunit_pass
+fi
+out=$(_pty $'\x1b[200~' $'a\033[31mb' $'\x1b[201~' '\x04')
+assert_contains "$out" "ab"
+
 ptyunit_test_summary

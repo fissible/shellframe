@@ -120,7 +120,78 @@ SHELLFRAME_MOUSE_CTRL=0
 # Widget loops must check this flag and exit cancelled instead of spinning.
 SHELLFRAME_KEY_EOF=0
 
+# Output variable set by shellframe_read_key when an optional timeout was
+# given and expired with no input. 1 = timed out; reset to 0 every call.
+SHELLFRAME_KEY_TIMEOUT=0
+
+# Output variable set by _shellframe_parse_sgr_mouse when the event is a
+# motion report (button-mask bit 32). Motion events are parsed then DISCARDED
+# by both readers — hover/drag is #57 scope — but the flag documents what was
+# seen. Reset on every parse.
+SHELLFRAME_MOUSE_MOTION=0
+
+# _shellframe_parse_sgr_mouse <sequence>
+#
+# The single SGR mouse decoder (ESC [ < Pb ; Px ; Py M|m) used by every
+# reader (#46 — the two inline copies had already drifted). Validates that
+# exactly three numeric fields are present; malformed sequences are silently
+# discarded, because a terminal emitting them will emit more and one bad
+# event must never poison the coordinate globals.
+#
+# Motion reports (bit 32) are validated, flagged via SHELLFRAME_MOUSE_MOTION,
+# and discarded: no consumer supports hover yet (#57), and letting bit 32
+# leak into SHELLFRAME_MOUSE_BUTTON surfaced as phantom "button 32" presses.
+#
+# Returns 0 and sets the SHELLFRAME_MOUSE_* globals on a consumable press or
+# release; returns 1 on discard (malformed or motion).
+_shellframe_parse_sgr_mouse() {
+    local _seq="$1"
+    local _sgr_pfx=$'\033[<'
+    SHELLFRAME_MOUSE_MOTION=0
+
+    [[ "$_seq" == "${_sgr_pfx}"* ]] || return 1
+
+    local _params="${_seq#"${_sgr_pfx}"}"
+    _params="${_params%[Mm]}"
+    # Quoted via variable: an unquoted regex containing ';' is a parse error
+    local _num_re='^[0-9]+;[0-9]+;[0-9]+$'
+    [[ "$_params" =~ $_num_re ]] || return 1
+
+    # ACTION is set only after validation so a rejected sequence cannot leave
+    # a stale disposition behind (review round 3)
+    case "$_seq" in
+        *M) SHELLFRAME_MOUSE_ACTION="press"   ;;
+        *m) SHELLFRAME_MOUSE_ACTION="release" ;;
+    esac
+
+    local _raw_btn="${_params%%;*}"
+    local _rest="${_params#*;}"
+
+    if (( _raw_btn & 32 )); then
+        SHELLFRAME_MOUSE_MOTION=1
+        return 1   # motion: parsed, flagged, dropped (#46; hover is #57)
+    fi
+
+    SHELLFRAME_MOUSE_SHIFT=$(( (_raw_btn >> 2) & 1 ))
+    SHELLFRAME_MOUSE_META=$(( (_raw_btn >> 3) & 1 ))
+    SHELLFRAME_MOUSE_CTRL=$(( (_raw_btn >> 4) & 1 ))
+    # Clear shift/alt/ctrl/motion bits (4+8+16+32); keep buttons 0-2, wheel 64/65.
+    SHELLFRAME_MOUSE_BUTTON=$(( _raw_btn & ~60 ))
+    SHELLFRAME_MOUSE_COL="${_rest%%;*}"
+    SHELLFRAME_MOUSE_ROW="${_rest#*;}"
+    return 0
+}
+
 # Read one keypress (including full escape sequences) into a variable.
+#
+# Usage:
+#   local key
+#   shellframe_read_key key              # block until a key arrives
+#   shellframe_read_key key 5            # give up after 5 idle seconds
+#
+# On timeout expiry the output variable is set to "" and
+# SHELLFRAME_KEY_TIMEOUT=1; no data means the caller decides what silence
+# means (e.g. the editor's paste drain treats it as paste-end, #45).
 #
 # Usage:
 #   local key
@@ -141,12 +212,52 @@ SHELLFRAME_KEY_EOF=0
 # follow-on bytes are already in the buffer and return immediately.
 shellframe_read_key() {
     local _out_var="${1:-_SHELLFRAME_KEY}"
-    local _k _c
+    local _timeout="${2:-}"
+    local _k _c _rc=0
+
     SHELLFRAME_KEY_EOF=0
-    IFS= read -r -n1 -d '' _k || { [[ -z "$_k" ]] && SHELLFRAME_KEY_EOF=1; }
-    if (( SHELLFRAME_KEY_EOF )); then
-        printf -v "$_out_var" '%s' ""
-        return 0
+    SHELLFRAME_KEY_TIMEOUT=0
+
+    # Fractional timeouts are invalid on bash 3.2 (integer-only -t); floor to
+    # a minimum of 1 s there so a sub-second limit cannot end reads instantly.
+    if [[ -n "$_timeout" ]] && (( BASH_VERSINFO[0] < 4 )); then
+        _timeout="${_timeout%%.*}"
+        [[ -z "$_timeout" ]] && _timeout=1
+        (( _timeout < 1 )) && _timeout=1
+    fi
+
+    if [[ -n "$_timeout" ]]; then
+        IFS= read -r -n1 -d '' -t "$_timeout" _k || _rc=$?
+        if [[ -z "$_k" ]]; then
+            # Three ways to arrive here with an empty value:
+            #   rc > 128        timer expired            -> TIMEOUT
+            #   0 < rc <= 128   stdin EOF                -> EOF
+            #   rc == 0         the delimiter (a NUL byte) was read -> a
+            #                     literal NUL keystroke: empty key, NO flags
+            #                   (treating it as EOF made the editor drop a
+            #                   whole paste containing one NUL — review #45)
+            if (( _rc == 0 )); then
+                :
+            elif (( BASH_VERSINFO[0] >= 4 )) && (( _rc > 128 )); then
+                SHELLFRAME_KEY_TIMEOUT=1
+            elif (( BASH_VERSINFO[0] >= 4 )); then
+                SHELLFRAME_KEY_EOF=1
+            else
+                SHELLFRAME_KEY_TIMEOUT=1   # 3.2 cannot separate them; conservative
+            fi
+            printf -v "$_out_var" '%s' ""
+            return 0
+        fi
+    else
+        IFS= read -r -n1 -d '' _k || _rc=$?
+        if [[ -z "$_k" ]]; then
+            if (( _rc != 0 )); then
+                SHELLFRAME_KEY_EOF=1
+                printf -v "$_out_var" '%s' ""
+                return 0
+            fi
+            # else: a literal NUL keystroke — fall through with empty value
+        fi
     fi
     if [[ "$_k" == $'\x1b' ]]; then
         IFS= read -r -n1 -d '' -t 1 _c
@@ -175,28 +286,20 @@ shellframe_read_key() {
                     [A-Za-z~]) break ;;
                 esac
             done
-            # SGR mouse: ESC [ < Pb ; Px ; Py M (press) or m (release)
-            # Detect by prefix ESC[< and letter final byte M or m.
-            local _sgr_pfx=$'\x1b[<'
-            if [[ "$_k" == "${_sgr_pfx}"* ]]; then
-                local _params="${_k#"${_sgr_pfx}"}"   # strip ESC[<
-                _params="${_params%[Mm]}"               # strip trailing M or m
-                local _raw_btn="${_params%%;*}"
-                SHELLFRAME_MOUSE_SHIFT=$(( (_raw_btn >> 2) & 1 ))
-                SHELLFRAME_MOUSE_META=$(( (_raw_btn >> 3) & 1 ))
-                SHELLFRAME_MOUSE_CTRL=$(( (_raw_btn >> 4) & 1 ))
-                SHELLFRAME_MOUSE_BUTTON=$(( _raw_btn & ~28 ))
-                local _rest="${_params#*;}"
-                SHELLFRAME_MOUSE_COL="${_rest%%;*}"
-                SHELLFRAME_MOUSE_ROW="${_rest#*;}"
-                if [[ "$_k" == *M ]]; then
-                    SHELLFRAME_MOUSE_ACTION="press"
-                else
-                    SHELLFRAME_MOUSE_ACTION="release"
-                fi
-                printf -v "$_out_var" '%s' "$SHELLFRAME_KEY_MOUSE"
-                return 0
-            fi
+            # SGR mouse only (ESC[< prefix): decode via the shared validated
+            # parser (#46). Malformed or motion events are CONSUMED silently
+            # (review round 2, blocker 2) — letting them fall through made
+            # "any key" widgets dismiss on drag steps. All other sequences
+            # fall through and are returned raw.
+            case "$_k" in
+                $'\x1b[<'*)
+                    if _shellframe_parse_sgr_mouse "$_k"; then
+                        printf -v "$_out_var" '%s' "$SHELLFRAME_KEY_MOUSE"
+                    else
+                        printf -v "$_out_var" '%s' ""
+                    fi
+                    return 0 ;;
+            esac
         fi
     fi
     printf -v "$_out_var" '%s' "$_k"

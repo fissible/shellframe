@@ -120,7 +120,7 @@ _two_reads_hex() {
         shellframe_read_key k1
         shellframe_read_key k2
         # Hex-encode k1 and k2 for safe transport through stdout
-        hex1="" hex2="" i code
+        hex1="" hex2="" i=0 code=""
         for (( i=0; i<${#k1}; i++ )); do
             printf -v code "%d" "'"'"'${k1:$i:1}"
             printf -v hex1 "%s%02x" "$hex1" "$code"
@@ -279,5 +279,81 @@ assert_eq "45"  "$_mo_row" "row 45"
 ptyunit_test_begin "read_key: SGR mouse does not leak bytes to subsequent read"
 _result=$(_two_reads_hex $'\x1b[<0;10;5M''q')
 assert_eq "71" "${_result##*|}" "second read is 'q' (0x71) after mouse sequence"
+
+# ── #46: shared SGR mouse parser — validation and motion handling ────────────
+
+_parse_case() {
+    _shellframe_parse_sgr_mouse "$1"
+    printf 'rc=%d btn=%s col=%s row=%s act=%s mot=%d sh=%d me=%d ct=%d' \
+        "$?" "${SHELLFRAME_MOUSE_BUTTON:-}" "${SHELLFRAME_MOUSE_COL:-}" \
+        "${SHELLFRAME_MOUSE_ROW:-}" "$SHELLFRAME_MOUSE_ACTION" \
+        "$SHELLFRAME_MOUSE_MOTION" "$SHELLFRAME_MOUSE_SHIFT" \
+        "$SHELLFRAME_MOUSE_META" "$SHELLFRAME_MOUSE_CTRL"
+}
+
+ptyunit_test_begin "sgr #46: ESC[<M (no params) is discarded"
+_run=$(_parse_case $'\x1b[<M')
+assert_contains "$_run" "rc=1"
+
+ptyunit_test_begin "sgr #46: ESC[<0M (two fields) is discarded"
+_run=$(_parse_case $'\x1b[<0M')
+assert_contains "$_run" "rc=1"
+
+ptyunit_test_begin "sgr #46: ESC[<0;5M (missing field) is discarded"
+_run=$(_parse_case $'\x1b[<0;5M')
+assert_contains "$_run" "rc=1"
+
+ptyunit_test_begin "sgr #46: non-SGR sequence discarded"
+_run=$(_parse_case $'\x1b[3~')
+assert_contains "$_run" "rc=1"
+
+ptyunit_test_begin "sgr #46: motion report (bit 32) parsed then dropped with flag"
+_run=$(_parse_case $'\x1b[<32;5;5M')
+assert_contains "$_run" "rc=1"
+assert_contains "$_run" "mot=1"
+
+ptyunit_test_begin "sgr #46: plain press decoded, globals overwritten"
+SHELLFRAME_MOUSE_MOTION=9 SHELLFRAME_MOUSE_BUTTON=99 SHELLFRAME_MOUSE_SHIFT=9
+_run=$(_parse_case $'\x1b[<0;5;5M')
+assert_eq "rc=0 btn=0 col=5 row=5 act=press mot=0 sh=0 me=0 ct=0" "$_run"
+
+ptyunit_test_begin "sgr #46: wheel release decoded (bit 64 survives the mask)"
+_run=$(_parse_case $'\x1b[<64;3;4m')
+assert_eq "rc=0 btn=64 col=3 row=4 act=release mot=0 sh=0 me=0 ct=0" "$_run"
+
+ptyunit_test_begin "sgr #46: shift+click extracts and clears the shift bit"
+_run=$(_parse_case $'\x1b[<4;5;6M')
+assert_eq "rc=0 btn=0 col=5 row=6 act=press mot=0 sh=1 me=0 ct=0" "$_run"
+
+ptyunit_test_begin "sgr #46: ctrl+wheel (80 = 64|16) keeps button, sets ctrl"
+_run=$(_parse_case $'\x1b[<80;3;4M')
+assert_eq "rc=0 btn=64 col=3 row=4 act=press mot=0 sh=0 me=0 ct=1" "$_run"
+
+
+# ── #45/#46 review round 2: timeout flag, NUL bytes, discarded SGR keys ──────
+
+ptyunit_test_begin "read_key: held-open fifo times out -> KEY_TIMEOUT=1"
+_fifo="${TMPDIR:-/tmp}/sf-rt-fifo.$$"
+mkfifo "$_fifo"
+( sleep 3 > "$_fifo" >/dev/null 2>&1 ) & _h=$!
+_out=$( exec 9<> "$_fifo"; shellframe_read_key _rk 1 <&9; printf 'tmo=%d eof=%d len=%d' \
+    "$SHELLFRAME_KEY_TIMEOUT" "$SHELLFRAME_KEY_EOF" "${#_rk}" )
+exec 9<&-; kill "$_h" 2>/dev/null; rm -f "$_fifo"
+assert_contains "$_out" "tmo=1"
+assert_contains "$_out" "eof=0"
+
+ptyunit_test_begin "read_key: NUL byte is an empty key, NOT EOF"
+_out=$( printf '\000' | { shellframe_read_key _rk; printf 'eof=%d tmo=%d len=%d' \
+    "$SHELLFRAME_KEY_EOF" "$SHELLFRAME_KEY_TIMEOUT" "${#_rk}"; } )
+assert_contains "$_out" "eof=0"
+assert_contains "$_out" "tmo=0"
+
+ptyunit_test_begin "read_key: discarded SGR (motion) yields empty key, not raw sequence"
+_out=$( printf '\033[<32;5;5M' | { shellframe_read_key _rk; printf 'len=%d' "${#_rk}"; } )
+assert_eq "len=0" "$_out"
+
+ptyunit_test_begin "read_key: malformed SGR yields empty key, not raw sequence"
+_out=$( printf '\033[<0;5M' | { shellframe_read_key _rk; printf 'len=%d' "${#_rk}"; } )
+assert_eq "len=0" "$_out"
 
 ptyunit_test_summary

@@ -174,3 +174,103 @@ shellframe_str_pad() {
     (( _pad < 0 )) && _pad=0
     printf '%s%*s' "$_rendered" "$_pad" ''
 }
+
+# ── shellframe_sanitize ────────────────────────────────────────────────────────
+
+# Strip ANSI escape sequences and C0 control characters from untrusted text,
+# keeping only printable characters plus \n and \t. Handles complete CSI
+# sequences, string sequences (OSC/DCS/SOS/PM/APC — terminated by BEL or ST),
+# two-byte Fe sequences, and a trailing truncated escape. Also drops DEL.
+#
+# Intended for content that did not originate from the application (pasted
+# text, file names) before it enters an editor buffer or the render path (#45).
+# Literal characters are never interpreted: a backslash-n stays two chars.
+#
+# Collation note (review 2026-08-25): the CSI final-byte class [@-~] relies
+# on byte-ordered range matching. Under bash 3.2 with a UTF-8 locale,
+# bracket ranges follow collation order and letters fall outside [@-~] —
+# so a CSI would never terminate and everything after the first escape was
+# dropped. LC_COLLATE=C is pinned for the whole function.
+#
+# Usage:
+#   sanitized=$(shellframe_sanitize "$raw")        # prints result
+#   shellframe_sanitize "$raw" out_var             # or sets out_var
+shellframe_sanitize() {
+    local _raw="$1" _out_var="${2:-}"
+    # LC_ALL=C: byte semantics throughout — O(1) ${s:i:1} substrings on
+    # bash 3.2 (multibyte-locale extraction is per-column and made the loop
+    # quadratic), and collation-ordered bracket ranges for the classes below.
+    local LC_ALL=C
+
+    # Fast path (#45 review): nothing to strip when there is no ESC and no
+    # control character besides \n and \t — which are kept verbatim anyway.
+    # Single glob scans are O(n) even on bash 3.2; ${var//x/} stripping here
+    # would be O(matches*n) there (review round 3).
+    local _c0x
+    _c0x=$(printf '\001-\010\013-\037\177')   # C0 minus \t \n, plus DEL
+    if [[ "$_raw" != *$'\x1b'* && "$_raw" != *[$_c0x]* ]]; then
+        if [[ -n "$_out_var" ]]; then
+            printf -v "$_out_var" '%s' "$_raw"
+        else
+            printf '%s' "$_raw"
+        fi
+        return 0
+    fi
+
+    local _n="${#_raw}" _i=0 _c="" _state=0
+    local -a _parts=()          # chunked accumulation: string += is O(n^2)
+    # Bracket class of C0 controls + DEL, built via printf because $'..'
+    # escapes do not expand inside case-pattern bracket expressions.
+    local _c0_class="[$(printf '\001-\037\177')]"
+    # Bracket classes for nF sequences (ESC + intermediates + final), e.g.
+    # tput sgr0's ESC ( B — previously leaked the final byte as text.
+    local _inter_class="[$(printf '\040-/')]"     # 0x20-0x2F intermediates
+    local _nf_final="[$(printf '\060-\176')]"    # nF finals 0x30-0x7E
+    local _csi_final="[$(printf '\100-\176')]"   # CSI finals 0x40-0x7E (excl. params)
+    # _state 0 = plain text, 1 = got ESC, 2 = CSI body, 3 = string seq body,
+    # 4 = string seq saw ESC (expecting the '\' of ST), 5 = nF intermediates
+    while (( _i < _n )); do
+        _c="${_raw:$_i:1}"
+        case "$_state" in
+            0)
+                case "$_c" in
+                    $'\x1b')                       _state=1 ;;
+                    $'\n'|$'\t')                   _parts+=("$_c") ;;
+                    $_c0_class)                    ;;   # other C0 + DEL: drop
+                    *)                             _parts+=("$_c") ;;
+                esac ;;
+            1)
+                case "$_c" in
+                    $'\x1b')                   _state=1 ;;   # doubled ESC: restart (round-3 nit)
+                    '[')                        _state=2 ;;
+                    ']'|'P'|'X'|'^'|'_')        _state=3 ;;
+                    $_inter_class)              _state=5 ;;
+                    *)                          _state=0 ;;   # Fe: consumed
+                esac ;;
+            2)
+                [[ "$_c" == $_csi_final ]] && _state=0 ;;
+            3)
+                if [[ "$_c" == $'\x07' ]]; then
+                    _state=0                                  # BEL terminator
+                elif [[ "$_c" == $'\x1b' ]]; then
+                    _state=4                                  # ESC of ST
+                fi ;;
+            4) _state=0 ;;                                    # '\' of ST
+            5)
+                case "$_c" in
+                    $_inter_class)             ;;               # more intermediates
+                    $_nf_final)                _state=0 ;;      # sequence complete
+                    *)                         _state=0 ;;      # malformed: resync
+                esac ;;
+        esac
+        (( _i++ ))
+    done
+    # Single O(n) join — appending per character to a string is O(n^2) in bash.
+    local _joined
+    _joined="$(printf '%s' "${_parts[@]+"${_parts[@]}"}")"
+    if [[ -n "$_out_var" ]]; then
+        printf -v "$_out_var" '%s' "$_joined"
+    else
+        printf '%s' "$_joined"
+    fi
+}

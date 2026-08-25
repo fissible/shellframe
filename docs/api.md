@@ -4,6 +4,18 @@
 
 ## `src/clip.sh`
 
+**`shellframe_sanitize raw [out_var]`**
+
+Strips ANSI escape sequences (CSI, OSC/DCS/SOS/PM/APC string forms, two-byte
+Fe, nF with intermediates) and C0 control characters — keeping only printables,
+`\n`, `\t` — from untrusted text before it enters an editor buffer or the
+render path. A fast path returns clean input untouched.
+
+> **Width model:** all clip/pad/length helpers count **code points**
+> (`${#var}`), not terminal columns. Wide characters (CJK, emoji → 2 columns)
+> and combining marks (→ 0) will misalign bordered/columnar layouts. Scope
+> and the proposed width-aware API are tracked in #54.
+
 String measurement and clipping utilities using the **raw + rendered** convention:
 `raw` is the plain-text version of the string (no ANSI codes) — its byte length
 equals its visible character count. `rendered` is the same content with ANSI
@@ -138,6 +150,22 @@ than consumed as the line terminator (see [Hard-won lessons](hard-won-lessons.md
 
 Sets `SHELLFRAME_KEY_EOF=1` when stdin has reached EOF; widget loops must
 check it and exit cancelled — looping on an EOF read spins at 100% CPU (#44).
+
+Mouse decoding goes through `_shellframe_parse_sgr_mouse`: malformed events
+(wrong field count / non-numeric) are consumed as empty keys, and motion
+reports (button-mask bit 32) set `SHELLFRAME_MOUSE_MOTION=1` and are dropped —
+hover/drag is not supported (#57).
+
+Mouse decoding goes through `_shellframe_parse_sgr_mouse`: malformed events
+(wrong field count / non-numeric) are consumed as empty keys, and motion
+reports (button-mask bit 32) set `SHELLFRAME_MOUSE_MOTION=1` and are dropped —
+hover/drag is not supported (#57).
+
+An optional second argument bounds the wait: `shellframe_read_key key 5`
+gives up after 5 idle seconds, setting `SHELLFRAME_KEY_TIMEOUT=1` with an
+empty value. On bash 3.2 a timed empty result always reports TIMEOUT
+(3.2 cannot distinguish EOF by return code); callers treating silence and
+EOF the same way are unaffected.
 
 **Exit/return-code contracts**
 
