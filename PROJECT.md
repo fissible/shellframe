@@ -126,6 +126,36 @@ Start every new session by reading this file. Update task status here when work 
 
 ---
 
+## Phase 8 — Hardening & OSS Launch Prep (shellframe)
+> Source: external review report, 2026-08-24 (input parsing, both runtimes, screen/framebuffer, v1 widget internals, loader, test layout).
+> Verdict: niche is real and unoccupied; findings are robustness hardening, not architectural rot.
+> **Launch blockers:** A–D (#41–#44) must close before any public OSS push — "broken in the first five minutes" class.
+> Parallel track — independent of ShellQL phases. Order within the phase: blockers → ADR (L) → consolidations (F, N) → the rest.
+> IO/PTY/timing items (D, E, K, P) must be validated against a real PTY via ptyunit, not by reasoning.
+
+| # | Task | Effort | GH Issue | Status | Deps |
+|---|------|--------|----------|--------|------|
+| A | **H1** App runtime: `declare -F` existence checks on `_type`/handler fns + non-empty `_SHELLFRAME_APP_NEXT` assertion — kills the infinite error loop on typo'd screen names (`src/app.sh:115,158`) | S | [#41](https://github.com/fissible/shellframe/issues/41) | open | — |
+| B | **H2** `printf '%b'` only on constant color wrappers, `%s` for all caller content; audit every widget; optional shared `shellframe_sanitize` (`src/widgets/confirm.sh:52-53,180,196` + siblings) | S | [#42](https://github.com/fissible/shellframe/issues/42) | open | — |
+| C | **M3** v2 runtime INT/TERM trap must `exit 130/143` after cleanup — currently relies on fd-3 liveness check by accident (`src/shell.sh:443`; model: `confirm.sh:104`) | XS | [#43](https://github.com/fissible/shellframe/issues/43) | open | — |
+| D | **M4** Distinguish `read -t` timeout (rc>128) from EOF in the shell loop; quit on EOF instead of busy-spinning at 100% CPU (`src/shell.sh:355,479`) | S | [#44](https://github.com/fissible/shellframe/issues/44) | open | — |
+| E | **M5** Editor bracketed-paste drain: bounded wait for `ESC[201~` + strip C0/ESC from pasted content (`src/widgets/editor.sh:~1076`) | S | [#45](https://github.com/fissible/shellframe/issues/45) | open | B (sanitizer) |
+| F | **M6** Consolidate SGR mouse parsing into one fn in `src/input.sh` (carry the 50ms adaptive ESC timeout); validate 3 numeric params; handle motion bit 32 explicitly (`input.sh:169-187` vs `shell.sh:377-396`) | M | [#46](https://github.com/fissible/shellframe/issues/46) | open | L |
+| G | **M7** `shellframe_str_len` is `${#1}` — wide/combining chars misalign every bordered surface. Docs now (XS); wcwidth table per Q (`src/clip.sh:55`) | XS/M | [#47](https://github.com/fissible/shellframe/issues/47) | open | — |
+| H | **L** fd 3 hardcoded (`src/screen.sh:21`) — `exec {SHELLFRAME_TTY_FD}>/dev/tty` on ≥4.1, `SHELLFRAME_TTY_FD` override on 3.2 | S | [#48](https://github.com/fissible/shellframe/issues/48) | open | — |
+| I | **L** `.toolrc.local` cached feature flags never re-detect — fingerprint (`BASH_VERSION`/`TERM`/tput path) + `SHELLFRAME_REDETECT=1` | XS | [#49](https://github.com/fissible/shellframe/issues/49) | open | — |
+| J | **L** `_SF_ROW_CURR[$_r]+=` needs the `set -u` empty-array guard CLAUDE.md mandates; grep all indexed-array `+=` | XS | [#50](https://github.com/fissible/shellframe/issues/50) | open | — |
+| K | **L** Re-enable event coalescing (`src/shell.sh:335-338`) — root-cause the original crash first, record it in `docs/hard-won-lessons.md`; cap coalesced events | S | [#51](https://github.com/fissible/shellframe/issues/51) | open | F (nice-to-have) |
+| L | **ADR** v1 full-screen widgets vs v2 region/framebuffer runtime — sunset/coexistence plan, canonical shared modules (input, traps, sanitize, theme), contributor guidance; README "Architecture" pointer | S | [#55](https://github.com/fissible/shellframe/issues/55) | open | — |
+| M | **Widget** Spinner / progress bar / status line — `shellframe_spinner 'msg' -- cmd…` preserving exit code, `shellframe_progress cur total`, `shellframe_status` row for v2 | M | [#52](https://github.com/fissible/shellframe/issues/52) | open | — (O for colors) |
+| N | **Feature** Theming: semantic color roles (`SHELLFRAME_THEME_BORDER/…`) via `: "${VAR:=…}"`, old constants aliased one release, toast override folded in, `NO_COLOR` honored | M | [#53](https://github.com/fissible/shellframe/issues/53) | open | B |
+| O | **Feature** Wide-char strategy — decide: document ASCII-only limitation (XS) vs ship wcwidth range table (M); record decision | XS/M | [#54](https://github.com/fissible/shellframe/issues/54) | open | G |
+| P | **Feature** Scrollback escape hatch — `v`/`\|` opens plain-text render in `$PAGER` from table/action-list/grid; `--dump` non-interactive; alt-screen exit/re-entry PTY-tested | M | [#56](https://github.com/fissible/shellframe/issues/56) | open | B |
+| Q | **Feature** Mouse hover/motion — decide: scope out (drop bit 32, click+wheel only, document) vs finish (`?1002`, hitbox `hover` cb) | XS/M | [#57](https://github.com/fissible/shellframe/issues/57) | open | F; K (if finishing) |
+| R | **Docs** Windows/ConPTY story — supported (WSL/macOS/Linux/tmux) vs unsupported-and-why (Git Bash/MSYS2/Cygwin/ConPTY); optional `$OSTYPE` warn at load | XS | [#58](https://github.com/fissible/shellframe/issues/58) | open | — |
+
+---
+
 ## Milestones
 
 | Milestone | Condition | Status |
@@ -134,6 +164,7 @@ Start every new session by reading this file. Update task status here when work 
 | **M2: Mock app complete** | Phase 5 all closed, mock screens working | closed (5/5 screens done) |
 | **M3: ShellQL v0.1** | Phase 6 all closed, integration tests passing | closed (tracked in shellql/PLAN.md) |
 | **M4: Platform enhancements** | Phase 7 all closed; mouse, diff rendering, full F-key support | closed |
+| **M5: OSS launch ready** | Phase 8 A–D (#41–#44) closed; L (ADR #55) written; G/R docs (#47, #58) landed | open — 0/18 Phase 8 items closed |
 
 ---
 
@@ -156,6 +187,13 @@ Phase 1 (contracts)
     │                       A (input hardening)
     │                       ├── C (mouse parse) → D (hit-test) → E (routing)
     │                       └── B (dirty-region) → F (framebuffer diff)
+    │
+    └── Phase 8 (hardening & OSS launch prep) — parallel track, after Phase 7
+            blockers: A (#41) B (#42) C (#43) D (#44)  ──→ M5 milestone
+            B (sanitize) ──→ E (paste) · N (theming) · P (pager)
+            L (ADR) ──→ F (mouse consolidate) ──→ Q (hover decision) · K (coalescing)
+            G (width bug) ──→ O (wide-char decision)
+            independent: H I J M R
     └── (focus model feeds Phase 4 directly)
 ```
 
@@ -176,7 +214,7 @@ Before adding any new widget or screen:
 ## Session handoff notes
 > Update this section at the end of each session.
 
-_Last updated: 2026-03-16 (session 5)_
+_Last updated: 2026-08-24 (review-triage session)_
 - shellql repo stubbed and pushed to GitHub (https://github.com/fissible/shellql)
 - All 28 GitHub issues created: shellframe #1–18, shellql #1–9
 - PROJECT.md is the master tracking sheet; shellql/PLAN.md cross-references shellframe issues
@@ -335,3 +373,8 @@ _Last updated: 2026-03-16 (session 5)_
 - **Sheet navigation primitive complete (2026-04-02)**: [shellframe#27](https://github.com/fissible/shellframe/issues/27) closed. New `src/sheet.sh` — partial overlay above `shellframe_shell` screen. Frozen, dimmed back-strip at row 1; configurable sheet height (`SHELLFRAME_SHEET_HEIGHT`); wizard-style internal transitions via `_SHELLFRAME_SHEET_NEXT`; Esc + Up-from-topmost + `shellframe_sheet_pop` dismissal paths. Registry swap pattern (sheet `_SHELLFRAME_SHEET_*` ↔ shell `_SHELLFRAME_SHELL_*`) isolates sheet focus from parent. `src/screen.sh` gains `_SF_ROW_OFFSET` applied by all 4 `shellframe_fb_*` functions during region dispatch. `src/shell.sh` gets two delegation guards (`_shellframe_shell_draw` + key loop). Tab/Shift-Tab reserved at sheet level (always cycle focus, not offered to regions). `examples/sheet.sh`: two-step wizard (Name+Email → City+Zip). 8 PTY integration tests + 24 new unit assertions. 1511/1511 assertions pass (1397+114 via new tests). Spec: `docs/superpowers/specs/2026-04-02-sheet-navigation-design.md`.
   - **Known limitation**: Submit action setting both `_SHELLFRAME_SHEET_NEXT="__POP__"` and `_SHELLFRAME_SHELL_NEXT="__QUIT__"` causes `__QUIT__` to be processed before `__POP__` runs through `shellframe_sheet_draw` — sheet state left dirty on exit. Safe for single-run scripts; documented in `examples/sheet.sh`.
   - **Next**: PM decision — cut v0.4.0 release, form widget (#36), or ShellQL DML work (shellql#13–17).
+- **Review triage session (2026-08-24)**: External review report (input parsing, both runtimes, screen/framebuffer, v1 widget internals, loader, test layout) triaged into **Phase 8 — Hardening & OSS Launch Prep**. 18 issues filed: [#41–#58](https://github.com/fissible/shellframe/issues?q=is%3Aissue+is%3Aopen). All `file:line` refs in the report verified against `v0.5.1` (`4605a5b`). No code changed this session.
+  - **Launch blockers (do first, ~1 day total):** #41 app-runtime infinite loop, #42 `%b` escape injection, #43 Ctrl-C exit, #44 EOF busy-spin.
+  - **Decisions parked for PM** (also listed in projects/DECISIONS.md Open): #55 v1/v2 ADR, #54 wide-char strategy, #57 hover scope.
+  - **Review verdict worth keeping:** the `$()`/exit-code/fd-3 contract, Docker 3.2/4.4/5.x matrix, and load-bearing gotcha comments are the differentiators — don't trade them away while hardening. fd-3 fix (#48) must keep the persistent-fd design, only make the number configurable.
+  - **Next**: worker picks up #41 → #42 → #43 → #44 in order (`claude --cwd ~/lib/fissible/shellframe "Work on issue #41"`), then #55 ADR before touching #46/#53 so consolidations go the right direction. Cut v0.6.0 when M5 closes.
