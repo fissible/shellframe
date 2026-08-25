@@ -114,6 +114,12 @@ SHELLFRAME_MOUSE_SHIFT=0
 SHELLFRAME_MOUSE_META=0
 SHELLFRAME_MOUSE_CTRL=0
 
+# Output variable set by shellframe_read_key when stdin has reached EOF
+# (#44). 1 = EOF; reset to 0 at the start of every call. The initial read is
+# untimed, so EOF (rc=1, empty value) is unambiguous on all bash versions.
+# Widget loops must check this flag and exit cancelled instead of spinning.
+SHELLFRAME_KEY_EOF=0
+
 # Read one keypress (including full escape sequences) into a variable.
 #
 # Usage:
@@ -136,7 +142,12 @@ SHELLFRAME_MOUSE_CTRL=0
 shellframe_read_key() {
     local _out_var="${1:-_SHELLFRAME_KEY}"
     local _k _c
-    IFS= read -r -n1 -d '' _k
+    SHELLFRAME_KEY_EOF=0
+    IFS= read -r -n1 -d '' _k || { [[ -z "$_k" ]] && SHELLFRAME_KEY_EOF=1; }
+    if (( SHELLFRAME_KEY_EOF )); then
+        printf -v "$_out_var" '%s' ""
+        return 0
+    fi
     if [[ "$_k" == $'\x1b' ]]; then
         IFS= read -r -n1 -d '' -t 1 _c
         _k+="${_c}"

@@ -89,18 +89,18 @@ assert_not_called "shellframe_alert"
 
 # Run shellframe_app in a background subshell with a kill watchdog.
 # Sets __appbg_output, __appbg_rc.
+__appbg_file=$(mktemp "${TMPDIR:-/tmp}/sf-app-test.XXXXXX")
 _run_app_with_watchdog() {
     __appbg_output=""
     __appbg_rc=0
-    ( "$@" ) > /tmp/sf-app-bg.out 2>&1 &
+    ( "$@" ) > "$__appbg_file" 2>&1 &
     local _pid=$!
-    ( sleep 3; kill -9 "$_pid" 2>/dev/null ) &
+    ( sleep 3; kill -9 "$_pid" 2>/dev/null ) >/dev/null 2>&1 &
     local _wd=$!
     wait "$_pid"; __appbg_rc=$?
     kill "$_wd" 2>/dev/null
     wait "$_wd" 2>/dev/null
-    __appbg_output=$(< /tmp/sf-app-bg.out)
-    rm -f /tmp/sf-app-bg.out
+    __appbg_output=$(< "$__appbg_file")
 }
 
 ptyunit_test_begin "app #41: transition to nonexistent screen → diagnostic + exit 1"
@@ -134,3 +134,5 @@ assert_eq "1" "$__appbg_rc"
 assert_contains "$__appbg_output" "unknown screen"
 
 ptyunit_test_summary
+
+rm -f "$__appbg_file"

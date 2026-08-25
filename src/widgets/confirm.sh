@@ -241,6 +241,12 @@ shellframe_confirm() {
     while true; do
         local _key _krc
         shellframe_read_key _key
+
+        # stdin EOF: exit cancelled instead of spinning (#44)
+        if (( ${SHELLFRAME_KEY_EOF:-0} )); then
+            break   # _retval stays 1 (cancelled)
+        fi
+
         _shellframe_confirm_on_key "$_key"
         _krc=$?
         if   (( _krc == 2 )); then

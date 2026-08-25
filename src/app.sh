@@ -79,12 +79,11 @@ _SHELLFRAME_APP_TITLE=""
 _SHELLFRAME_APP_DETAILS=()
 
 # Map widget return code → event name string
-# Fatal configuration error: print a diagnostic to stderr and exit non-zero.
-# Used for missing screen functions / handlers so a typo'd screen name becomes
-# a readable error instead of an infinite command-not-found loop (#41).
+# Configuration-error diagnostic. Callers print this then `return 1` from
+# shellframe_app — deliberately NOT exit: app.sh is a sourced library and
+# must never kill the host script (#41 review).
 _shellframe_app_die() {
     printf 'shellframe: %s\n' "$1" >&2
-    exit 1
 }
 
 # Map widget return code → event name string
@@ -123,8 +122,16 @@ shellframe_app() {
         local _type
         if ! declare -F "${_prefix}_${_current}_type" >/dev/null 2>&1; then
             _shellframe_app_die "unknown screen '${_current}' (prefix '${_prefix}') — missing ${_prefix}_${_current}_type()"
+            return 1
         fi
         _type=$("${_prefix}_${_current}_type")
+        # Render hook: same existence discipline (#41 review) — a typo'd
+        # render name would otherwise run the widget against stale context
+        # globals and silently succeed.
+        if ! declare -F "${_prefix}_${_current}_render" >/dev/null 2>&1; then
+            _shellframe_app_die "unknown screen '${_current}' (prefix '${_prefix}') — missing ${_prefix}_${_current}_render()"
+            return 1
+        fi
         "${_prefix}_${_current}_render"
 
         # Run the widget for this screen type
@@ -160,6 +167,10 @@ shellframe_app() {
                 fi
                 _rc=$?
                 ;;
+            *)
+                _shellframe_app_die "screen '${_current}': widget type '${_type}' is not action-list|table|confirm|alert"
+                return 1
+                ;;
         esac
 
         # Map rc → event name, call event handler directly (not in $() — safe to
@@ -169,11 +180,13 @@ shellframe_app() {
         _event_fn="${_prefix}_${_current}_${_event}"
         if ! declare -F "$_event_fn" >/dev/null 2>&1; then
             _shellframe_app_die "screen '${_current}': missing ${_event_fn}() handler for widget type '${_type}'"
+            return 1
         fi
         _SHELLFRAME_APP_NEXT=""
         "$_event_fn"
         if [[ -z "${_SHELLFRAME_APP_NEXT:-}" ]]; then
             _shellframe_app_die "screen '${_current}': ${_event_fn}() did not set _SHELLFRAME_APP_NEXT"
+            return 1
         fi
         _current="$_SHELLFRAME_APP_NEXT"
     done

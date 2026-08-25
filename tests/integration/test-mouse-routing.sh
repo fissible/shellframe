@@ -91,3 +91,12 @@ _eout=$( python3 "$PTY_RUN" "$SHELLFRAME_DIR/tests/fixtures/shell-eof.sh" ) || _
 assert_contains "$_eout" "shell-returned:1"
 assert_eq "0" "$_eof_rc"
 ptyunit_test_summary
+
+# ── #44 follow-up (review): idle survival then clean EOF quit ────────────────
+
+ptyunit_test_begin "shell-runtime #44b: survives idle ticks, quits on later EOF"
+_ie_rc=0
+_ieout=$( python3 "$PTY_RUN" "$SHELLFRAME_DIR/tests/fixtures/shell-idle-eof.sh" ) || _ie_rc=$?
+assert_contains "$_ieout" "idle-shell-returned:1"
+assert_eq "0" "$_ie_rc"
+ptyunit_test_summary

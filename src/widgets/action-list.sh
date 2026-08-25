@@ -189,6 +189,11 @@ shellframe_action_list() {
         _prev_sel=$SHELLFRAME_AL_SELECTED
         shellframe_read_key _key
 
+        # stdin EOF: quit cancelled instead of spinning (#44)
+        if (( ${SHELLFRAME_KEY_EOF:-0} )); then
+            _al_retval=1; break
+        fi
+
         _shellframe_action_list_on_key "$_key" "$_n"
         _krc=$?
 

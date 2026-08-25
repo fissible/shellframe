@@ -111,7 +111,7 @@ and use its `${#raw}` length to compute padding manually.
 printf "%-20b" "${SHELLFRAME_GREEN}hello${SHELLFRAME_RESET}"
 
 # ✓ — measure raw, output rendered + explicit padding
-printf '%b' "$(shellframe_pad_left "hello" "${SHELLFRAME_GREEN}hello${SHELLFRAME_RESET}" 20)"
+printf '%s' "$(shellframe_pad_left "hello" "${SHELLFRAME_GREEN}hello${SHELLFRAME_RESET}" 20)"
 ```
 
 ---

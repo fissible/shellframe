@@ -411,6 +411,11 @@ shellframe_table() {
         _prev_sel=$SHELLFRAME_TBL_SELECTED   # snapshot before key handling
         shellframe_read_key _key
 
+        # stdin EOF: quit cancelled instead of spinning (#44)
+        if (( ${SHELLFRAME_KEY_EOF:-0} )); then
+            _tbl_retval=1; break
+        fi
+
         _shellframe_table_on_key "$_key" "$_n"
         local _krc=$?
 
