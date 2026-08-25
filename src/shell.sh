@@ -440,7 +440,13 @@ shellframe_shell() {
             } >> /tmp/shql-crash.log 2>/dev/null
         fi
     }
-    trap "_shellframe_shell_cleanup '$_saved_stty'" EXIT INT TERM
+    # EXIT alone runs cleanup on normal termination and on any error unwind.
+    # INT/TERM additionally restore-and-exit with the conventional signal exit
+    # codes (#43): traps are cleared first so the pending EXIT trap does not
+    # double-run cleanup.
+    trap "_shellframe_shell_cleanup '$_saved_stty'" EXIT
+    trap "trap - EXIT INT TERM; _shellframe_shell_cleanup '$_saved_stty'; exit 130" INT
+    trap "trap - EXIT INT TERM; _shellframe_shell_cleanup '$_saved_stty'; exit 143" TERM
 
     local _k_tab="${SHELLFRAME_KEY_TAB:-$'\t'}"
     local _k_shift_tab="${SHELLFRAME_KEY_SHIFT_TAB:-$'\033[Z'}"
