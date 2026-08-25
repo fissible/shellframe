@@ -217,27 +217,45 @@ shellframe_read_key() {
     SHELLFRAME_KEY_EOF=0
     SHELLFRAME_KEY_TIMEOUT=0
 
+    # Fractional timeouts are invalid on bash 3.2 (integer-only -t); floor to
+    # a minimum of 1 s there so a sub-second limit cannot end reads instantly.
+    if [[ -n "$_timeout" ]] && (( BASH_VERSINFO[0] < 4 )); then
+        _timeout="${_timeout%%.*}"
+        [[ -z "$_timeout" ]] && _timeout=1
+        (( _timeout < 1 )) && _timeout=1
+    fi
+
     if [[ -n "$_timeout" ]]; then
         IFS= read -r -n1 -d '' -t "$_timeout" _k || _rc=$?
         if [[ -z "$_k" ]]; then
-            # Nothing arrived within the window. bash >=4 separates timer
-            # expiry (>128) from stdin EOF (<=128); bash 3.2 returns 1 for
-            # both, so it reports TIMEOUT (the conservative choice: the
-            # editor paste drain treats both identically, and EOF is still
-            # observed by the next untimed read).
-            if (( BASH_VERSINFO[0] >= 4 )) && (( _rc <= 128 )); then
+            # Three ways to arrive here with an empty value:
+            #   rc > 128        timer expired            -> TIMEOUT
+            #   0 < rc <= 128   stdin EOF                -> EOF
+            #   rc == 0         the delimiter (a NUL byte) was read -> a
+            #                     literal NUL keystroke: empty key, NO flags
+            #                   (treating it as EOF made the editor drop a
+            #                   whole paste containing one NUL — review #45)
+            if (( _rc == 0 )); then
+                :
+            elif (( BASH_VERSINFO[0] >= 4 )) && (( _rc > 128 )); then
+                SHELLFRAME_KEY_TIMEOUT=1
+            elif (( BASH_VERSINFO[0] >= 4 )); then
                 SHELLFRAME_KEY_EOF=1
             else
-                SHELLFRAME_KEY_TIMEOUT=1
+                SHELLFRAME_KEY_TIMEOUT=1   # 3.2 cannot separate them; conservative
             fi
             printf -v "$_out_var" '%s' ""
             return 0
         fi
     else
-        IFS= read -r -n1 -d '' _k || { [[ -z "$_k" ]] && SHELLFRAME_KEY_EOF=1; }
-        if (( SHELLFRAME_KEY_EOF )); then
-            printf -v "$_out_var" '%s' ""
-            return 0
+        IFS= read -r -n1 -d '' _k || _rc=$?
+        if [[ -z "$_k" ]]; then
+            if (( _rc != 0 )); then
+                SHELLFRAME_KEY_EOF=1
+                printf -v "$_out_var" '%s' ""
+                return 0
+            fi
+            # else: a literal NUL keystroke — fall through with empty value
         fi
     fi
     if [[ "$_k" == $'\x1b' ]]; then
@@ -267,12 +285,20 @@ shellframe_read_key() {
                     [A-Za-z~]) break ;;
                 esac
             done
-            # SGR mouse: decode via the shared validated parser (#46).
-            # Malformed and motion events are discarded inside the parser.
-            if _shellframe_parse_sgr_mouse "$_k"; then
-                printf -v "$_out_var" '%s' "$SHELLFRAME_KEY_MOUSE"
-                return 0
-            fi
+            # SGR mouse only (ESC[< prefix): decode via the shared validated
+            # parser (#46). Malformed or motion events are CONSUMED silently
+            # (review round 2, blocker 2) — letting them fall through made
+            # "any key" widgets dismiss on drag steps. All other sequences
+            # fall through and are returned raw.
+            case "$_k" in
+                $'\x1b[<'*)
+                    if _shellframe_parse_sgr_mouse "$_k"; then
+                        printf -v "$_out_var" '%s' "$SHELLFRAME_KEY_MOUSE"
+                    else
+                        printf -v "$_out_var" '%s' ""
+                    fi
+                    return 0 ;;
+            esac
         fi
     fi
     printf -v "$_out_var" '%s' "$_k"

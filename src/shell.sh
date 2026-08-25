@@ -393,11 +393,17 @@ _shellframe_shell_read_key() {
                     [A-Za-z~]) break ;;
                 esac
             done
-            # SGR mouse: shared validated parser (#46)
-            if _shellframe_parse_sgr_mouse "$_k"; then
-                printf -v "$_out_var" '%s' "$SHELLFRAME_KEY_MOUSE"
-                return 0
-            fi
+            # SGR mouse only (ESC[< prefix); malformed/motion events are
+            # consumed as empty keys (see input.sh #46 note).
+            case "$_k" in
+                $'\x1b[<'*)
+                    if _shellframe_parse_sgr_mouse "$_k"; then
+                        printf -v "$_out_var" '%s' "$SHELLFRAME_KEY_MOUSE"
+                    else
+                        printf -v "$_out_var" '%s' ""
+                    fi
+                    return 0 ;;
+            esac
         fi
     fi
 

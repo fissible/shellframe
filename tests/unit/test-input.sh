@@ -329,4 +329,31 @@ ptyunit_test_begin "sgr #46: ctrl+wheel (80 = 64|16) keeps button, sets ctrl"
 _run=$(_parse_case $'\x1b[<80;3;4M')
 assert_eq "rc=0 btn=64 col=3 row=4 act=press mot=0 sh=0 me=0 ct=1" "$_run"
 
+
+# ── #45/#46 review round 2: timeout flag, NUL bytes, discarded SGR keys ──────
+
+ptyunit_test_begin "read_key: held-open fifo times out -> KEY_TIMEOUT=1"
+_fifo="${TMPDIR:-/tmp}/sf-rt-fifo.$$"
+mkfifo "$_fifo"
+( sleep 3 > "$_fifo" >/dev/null 2>&1 ) & _h=$!
+_out=$( exec 9<> "$_fifo"; shellframe_read_key _rk 1 <&9; printf 'tmo=%d eof=%d len=%d' \
+    "$SHELLFRAME_KEY_TIMEOUT" "$SHELLFRAME_KEY_EOF" "${#_rk}" )
+exec 9<&-; kill "$_h" 2>/dev/null; rm -f "$_fifo"
+assert_contains "$_out" "tmo=1"
+assert_contains "$_out" "eof=0"
+
+ptyunit_test_begin "read_key: NUL byte is an empty key, NOT EOF"
+_out=$( printf '\000' | { shellframe_read_key _rk; printf 'eof=%d tmo=%d len=%d' \
+    "$SHELLFRAME_KEY_EOF" "$SHELLFRAME_KEY_TIMEOUT" "${#_rk}"; } )
+assert_contains "$_out" "eof=0"
+assert_contains "$_out" "tmo=0"
+
+ptyunit_test_begin "read_key: discarded SGR (motion) yields empty key, not raw sequence"
+_out=$( printf '\033[<32;5;5M' | { shellframe_read_key _rk; printf 'len=%d' "${#_rk}"; } )
+assert_eq "len=0" "$_out"
+
+ptyunit_test_begin "read_key: malformed SGR yields empty key, not raw sequence"
+_out=$( printf '\033[<0;5M' | { shellframe_read_key _rk; printf 'len=%d' "${#_rk}"; } )
+assert_eq "len=0" "$_out"
+
 ptyunit_test_summary

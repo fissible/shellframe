@@ -1078,18 +1078,18 @@ shellframe_editor_on_key() {
         # Bracketed paste: drain all keys until paste-end, then insert as one
         # batch — single ensure_visible / vmap rebuild at the end.
         #
-        # Two bounded exits (#45): SHELLFRAME_KEY_EOF (input source gone) and
-        # SHELLFRAME_PASTE_SILENCE_LIMIT seconds without a keystroke (a lost
-        # or mangled ESC[201~ terminator must not consume keystrokes forever).
-        # Either way the bytes gathered so far are treated as the paste.
+        # Three bounded exits (#45 + review round 2): paste-end marker,
+        # SHELLFRAME_EDITOR_PASTE_SILENCE_LIMIT seconds without a keystroke
+        # (a lost or mangled ESC[201~ terminator must not consume keystrokes
+        # forever), and stdin EOF. All three insert the bytes gathered so far
+        # — dropping a partially-received paste on EOF made the earlier EOF
+        # branch contradict its own comment and lose user data.
         local _paste_buf="" _paste_key=""
-        local _paste_silence="${SHELLFRAME_PASTE_SILENCE_LIMIT:-5}"
+        local _paste_silence="${SHELLFRAME_EDITOR_PASTE_SILENCE_LIMIT:-5}"
         while true; do
             shellframe_read_key _paste_key "$_paste_silence"
-            if (( ${SHELLFRAME_KEY_EOF:-0} )); then
-                shellframe_shell_mark_dirty; return 0
-            fi
             (( ${SHELLFRAME_KEY_TIMEOUT:-0} )) && break
+            (( ${SHELLFRAME_KEY_EOF:-0} )) && break
             [[ "$_paste_key" == "$_k_paste_end" ]] && break
             _paste_buf="${_paste_buf}${_paste_key}"
         done

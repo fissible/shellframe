@@ -214,30 +214,37 @@ shellframe_sanitize() {
         return 0
     fi
 
-    local _n="${#_raw}" _i=0 _c="" _state=0 _out=""
+    local _n="${#_raw}" _i=0 _c="" _state=0
+    local -a _parts=()          # chunked accumulation: string += is O(n^2)
     # Bracket class of C0 controls + DEL, built via printf because $'..'
     # escapes do not expand inside case-pattern bracket expressions.
     local _c0_class="[$(printf '\001-\037\177')]"
+    # Bracket classes for nF sequences (ESC + intermediates + final), e.g.
+    # tput sgr0's ESC ( B — previously leaked the final byte as text.
+    local _inter_class="[$(printf '\040-/')]"     # 0x20-0x2F intermediates
+    local _nf_final="[$(printf '\060-\176')]"    # nF finals 0x30-0x7E
+    local _csi_final="[$(printf '\100-\176')]"   # CSI finals 0x40-0x7E (excl. params)
     # _state 0 = plain text, 1 = got ESC, 2 = CSI body, 3 = string seq body,
-    # 4 = string seq saw ESC (expecting the '\' of ST)
+    # 4 = string seq saw ESC (expecting the '\' of ST), 5 = nF intermediates
     while (( _i < _n )); do
         _c="${_raw:$_i:1}"
         case "$_state" in
             0)
                 case "$_c" in
                     $'\x1b')                       _state=1 ;;
-                    $'\n'|$'\t')                   _out+="$_c" ;;
+                    $'\n'|$'\t')                   _parts+=("$_c") ;;
                     $_c0_class)                    ;;   # other C0 + DEL: drop
-                    *)                             _out+="$_c" ;;
+                    *)                             _parts+=("$_c") ;;
                 esac ;;
             1)
                 case "$_c" in
                     '[')                        _state=2 ;;
                     ']'|'P'|'X'|'^'|'_')        _state=3 ;;
+                    $_inter_class)              _state=5 ;;
                     *)                          _state=0 ;;   # Fe: consumed
                 esac ;;
             2)
-                [[ "$_c" == [@-~] ]] && _state=0 ;;
+                [[ "$_c" == $_csi_final ]] && _state=0 ;;
             3)
                 if [[ "$_c" == $'\x07' ]]; then
                     _state=0                                  # BEL terminator
@@ -245,12 +252,21 @@ shellframe_sanitize() {
                     _state=4                                  # ESC of ST
                 fi ;;
             4) _state=0 ;;                                    # '\' of ST
+            5)
+                case "$_c" in
+                    $_inter_class)             ;;               # more intermediates
+                    $_nf_final)                _state=0 ;;      # sequence complete
+                    *)                         _state=0 ;;      # malformed: resync
+                esac ;;
         esac
         (( _i++ ))
     done
+    # Single O(n) join — appending per character to a string is O(n^2) in bash.
+    local _joined
+    _joined="$(printf '%s' "${_parts[@]+"${_parts[@]}"}")"
     if [[ -n "$_out_var" ]]; then
-        printf -v "$_out_var" '%s' "$_out"
+        printf -v "$_out_var" '%s' "$_joined"
     else
-        printf '%s' "$_out"
+        printf '%s' "$_joined"
     fi
 }
