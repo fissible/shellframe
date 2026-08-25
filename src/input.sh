@@ -148,20 +148,21 @@ _shellframe_parse_sgr_mouse() {
     local _seq="$1"
     local _sgr_pfx=$'\033[<'
     SHELLFRAME_MOUSE_MOTION=0
-    SHELLFRAME_MOUSE_ACTION=""
 
     [[ "$_seq" == "${_sgr_pfx}"* ]] || return 1
-    case "$_seq" in
-        *M) SHELLFRAME_MOUSE_ACTION="press"   ;;
-        *m) SHELLFRAME_MOUSE_ACTION="release" ;;
-        *)  return 1 ;;
-    esac
 
     local _params="${_seq#"${_sgr_pfx}"}"
     _params="${_params%[Mm]}"
     # Quoted via variable: an unquoted regex containing ';' is a parse error
     local _num_re='^[0-9]+;[0-9]+;[0-9]+$'
     [[ "$_params" =~ $_num_re ]] || return 1
+
+    # ACTION is set only after validation so a rejected sequence cannot leave
+    # a stale disposition behind (review round 3)
+    case "$_seq" in
+        *M) SHELLFRAME_MOUSE_ACTION="press"   ;;
+        *m) SHELLFRAME_MOUSE_ACTION="release" ;;
+    esac
 
     local _raw_btn="${_params%%;*}"
     local _rest="${_params#*;}"

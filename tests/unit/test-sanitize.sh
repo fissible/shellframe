@@ -47,6 +47,22 @@ assert_eq 'a\nb' "$_out"
 ptyunit_test_begin "sanitize: trailing truncated escape dropped"
 assert_eq "ok" "$(shellframe_sanitize $'ok\033[31')"
 
+ptyunit_test_begin "sanitize: 50 KB clean paste completes within 10 s (perf guard)"
+# Regression guard for the round-3 quadratic findings: ${var//x/} stripping
+# and multibyte-locale substring extraction both made clean pastes take
+# seconds-to-minutes on bash 3.2. The bound is generous enough for slow CI
+# (a real regression costs >40 s).
+_big=$(printf 'abc %064d\n%.0s' 1 800)   # ~50 KB, no ESC / no C0
+_t0=$(date +%s)
+shellframe_sanitize "$_big" _big_out
+_t1=$(date +%s)
+assert_eq "${#_big}" "${#_big_out}"
+if (( _t1 - _t0 <= 10 )); then
+    ptyunit_pass
+else
+    ptyunit_fail "sanitizer took $(( _t1 - _t0 )) s for a clean 50 KB paste"
+fi
+
 ptyunit_test_begin "sanitize: multi-byte text survives byte-collation pinning"
 assert_eq "日本語テスト" "$(shellframe_sanitize "日本語テスト")"
 

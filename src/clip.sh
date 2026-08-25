@@ -197,15 +197,18 @@ shellframe_str_pad() {
 #   shellframe_sanitize "$raw" out_var             # or sets out_var
 shellframe_sanitize() {
     local _raw="$1" _out_var="${2:-}"
-    local LC_COLLATE=C
+    # LC_ALL=C: byte semantics throughout — O(1) ${s:i:1} substrings on
+    # bash 3.2 (multibyte-locale extraction is per-column and made the loop
+    # quadratic), and collation-ordered bracket ranges for the classes below.
+    local LC_ALL=C
 
     # Fast path (#45 review): nothing to strip when there is no ESC and no
     # control character besides \n and \t — which are kept verbatim anyway.
-    # Two O(n) pattern scans in C beat the per-character bash loop by orders
-    # of magnitude on typical (clean) pastes.
-    local _probe="${_raw//$'\n'/}"
-    _probe="${_probe//$'\t'/}"
-    if [[ "$_probe" != *$'\x1b'* && "$_probe" != *[[:cntrl:]]* ]]; then
+    # Single glob scans are O(n) even on bash 3.2; ${var//x/} stripping here
+    # would be O(matches*n) there (review round 3).
+    local _c0x
+    _c0x=$(printf '\001-\010\013-\037\177')   # C0 minus \t \n, plus DEL
+    if [[ "$_raw" != *$'\x1b'* && "$_raw" != *[$_c0x]* ]]; then
         if [[ -n "$_out_var" ]]; then
             printf -v "$_out_var" '%s' "$_raw"
         else
@@ -238,6 +241,7 @@ shellframe_sanitize() {
                 esac ;;
             1)
                 case "$_c" in
+                    $'\x1b')                   _state=1 ;;   # doubled ESC: restart (round-3 nit)
                     '[')                        _state=2 ;;
                     ']'|'P'|'X'|'^'|'_')        _state=3 ;;
                     $_inter_class)              _state=5 ;;
