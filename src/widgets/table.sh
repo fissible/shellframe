@@ -184,7 +184,7 @@ shellframe_table() {
 
     # ── Route TUI output to the real terminal ─────────────────────────────
     exec 3>&1
-    exec 1>&3
+    exec 1>&"$_SF_TTY_FD"
 
     # ── Cleanup ───────────────────────────────────────────────────────────
     SHELLFRAME_TBL_SAVED_STTY=$(shellframe_raw_save)
@@ -195,8 +195,8 @@ shellframe_table() {
         shellframe_raw_exit "$SHELLFRAME_TBL_SAVED_STTY"
         shellframe_cursor_show
         shellframe_screen_exit
-        { exec 1>&3; } 2>/dev/null || true
-        { exec 3>&-; } 2>/dev/null || true
+        { exec 1>&"$_SF_TTY_FD"; } 2>/dev/null || true
+        { eval "exec $_SF_TTY_FD>&-"; } 2>/dev/null || true
     }
     trap '_tbl_exit; exit 1' INT TERM
 

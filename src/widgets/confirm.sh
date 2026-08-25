@@ -33,7 +33,7 @@ SHELLFRAME_CONFIRM_RESULT=-1    # 0 = Yes, 1 = No (set by _on_key on exit)
 #   inner    — inner box width in characters
 #   c0       — leftmost column of the dialog box (1-indexed)
 # Writes directly to stdout (which shellframe_confirm has wired to fd 3 via
-# exec 1>&3; in unit tests output goes to stdout for capture).
+# exec 1>&"$_SF_TTY_FD"; in unit tests output goes to stdout for capture).
 _shellframe_confirm_draw_buttons() {
     local _brow="$1" _selected="$2" _inner="$3" _c0="$4"
     local _yes_str _no_str
@@ -88,7 +88,7 @@ shellframe_confirm() {
 
     # ── fd plumbing ───────────────────────────────────────────────────────────
     exec 3>&1
-    exec 1>&3
+    exec 1>&"$_SF_TTY_FD"
 
     # ── cleanup ───────────────────────────────────────────────────────────────
     local _cf_saved_stty
@@ -98,8 +98,8 @@ shellframe_confirm() {
         shellframe_raw_exit "$_cf_saved_stty"
         shellframe_cursor_show
         shellframe_screen_exit
-        { exec 1>&3; } 2>/dev/null || true
-        { exec 3>&-; } 2>/dev/null || true
+        { exec 1>&"$_SF_TTY_FD"; } 2>/dev/null || true
+        { eval "exec $_SF_TTY_FD>&-"; } 2>/dev/null || true
     }
     trap '_cf_exit; exit 1' INT TERM
 

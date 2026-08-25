@@ -68,7 +68,7 @@
 #       shellframe_shell_region main 2 1 "$_cols" $(( _rows - 2 )) focus
 #       shellframe_shell_region footer "$_rows" 1 "$_cols" 1 nofocus
 #   }
-#   _myapp_ROOT_topbar_render() { printf '\033[%d;%dHMy App' "$1" "$2" >&3; }
+#   _myapp_ROOT_topbar_render() { printf '\033[%d;%dHMy App' "$1" "$2" >&"$_SF_TTY_FD"; }
 #   _myapp_ROOT_main_render()   { SHELLFRAME_LIST_CTX="main"; shellframe_list_render "$@"; }
 #   _myapp_ROOT_main_on_key()   { SHELLFRAME_LIST_CTX="main"; shellframe_list_on_key "$1"; }
 #   _myapp_ROOT_main_on_focus() { shellframe_list_on_focus "$1"; }
@@ -425,14 +425,14 @@ shellframe_shell() {
     shellframe_cursor_hide
     shellframe_raw_enter
     # EXIT trap: restore terminal state even if fd 3 is dead.
-    # shellframe_mouse_exit / cursor_show / screen_exit all write >&3.
+    # shellframe_mouse_exit / cursor_show / screen_exit all write >&"$_SF_TTY_FD".
     # If fd 3 is bad (crash, signal, or /dev/tty disconnected), fall back to
     # writing the escape sequences directly to /dev/tty.
     _shellframe_shell_cleanup() {
         local _rc=$?
         shellframe_raw_exit "$1" 2>/dev/null
         # Try fd 3 first; fall back to /dev/tty
-        if { true >&3; } 2>/dev/null; then
+        if { true >&"$_SF_TTY_FD"; } 2>/dev/null; then
             shellframe_mouse_exit
             shellframe_cursor_show
             shellframe_screen_exit
@@ -498,7 +498,7 @@ shellframe_shell() {
 
             # Read with timeout so SIGWINCH can interrupt the loop.
             # Safety: if fd 3 is dead, bail out instead of spinning.
-            if ! { true >&3; } 2>/dev/null; then
+            if ! { true >&"$_SF_TTY_FD"; } 2>/dev/null; then
                 _current="__QUIT__"; _screen_done=1; continue
             fi
 
@@ -687,7 +687,7 @@ shellframe_shell() {
     # Normal exit — clear trap first so cleanup doesn't run twice
     trap - EXIT INT TERM WINCH
     shellframe_raw_exit "$_saved_stty" 2>/dev/null
-    if { true >&3; } 2>/dev/null; then
+    if { true >&"$_SF_TTY_FD"; } 2>/dev/null; then
         shellframe_mouse_exit
         shellframe_cursor_show
         shellframe_screen_exit

@@ -102,7 +102,7 @@ shellframe_action_list() {
     # screen output reaches the terminal.  Fixed fd 3 — {varname} requires
     # bash 4.1+; macOS ships bash 3.2.
     exec 3>&1
-    exec 1>&3
+    exec 1>&"$_SF_TTY_FD"
 
     # ── Cleanup ───────────────────────────────────────────────────────────
     SHELLFRAME_AL_SAVED_STTY=$(shellframe_raw_save)
@@ -115,8 +115,8 @@ shellframe_action_list() {
         shellframe_raw_exit "$SHELLFRAME_AL_SAVED_STTY"
         shellframe_cursor_show
         shellframe_screen_exit
-        { exec 1>&3; } 2>/dev/null || true
-        { exec 3>&-; } 2>/dev/null || true
+        { exec 1>&"$_SF_TTY_FD"; } 2>/dev/null || true
+        { eval "exec $_SF_TTY_FD>&-"; } 2>/dev/null || true
     }
     trap '_al_exit; exit 1' INT TERM
 
