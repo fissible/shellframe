@@ -139,6 +139,12 @@ than consumed as the line terminator (see [Hard-won lessons](hard-won-lessons.md
 Sets `SHELLFRAME_KEY_EOF=1` when stdin has reached EOF; widget loops must
 check it and exit cancelled — looping on an EOF read spins at 100% CPU (#44).
 
+An optional second argument bounds the wait: `shellframe_read_key key 5`
+gives up after 5 idle seconds, setting `SHELLFRAME_KEY_TIMEOUT=1` with an
+empty value. On bash 3.2 a timed empty result always reports TIMEOUT
+(3.2 cannot distinguish EOF by return code); callers treating silence and
+EOF the same way are unaffected.
+
 **Exit/return-code contracts**
 
 | Call | Returns |

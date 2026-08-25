@@ -1077,20 +1077,24 @@ shellframe_editor_on_key() {
     if [[ "$_key" == "$_k_paste_start" ]]; then
         # Bracketed paste: drain all keys until paste-end, then insert as one
         # batch — single ensure_visible / vmap rebuild at the end.
-        # stdin EOF ends the drain too (#44) — otherwise a lost paste-end
-        # marker would consume keystrokes forever.
+        #
+        # Two bounded exits (#45): SHELLFRAME_KEY_EOF (input source gone) and
+        # SHELLFRAME_PASTE_SILENCE_LIMIT seconds without a keystroke (a lost
+        # or mangled ESC[201~ terminator must not consume keystrokes forever).
+        # Either way the bytes gathered so far are treated as the paste.
         local _paste_buf="" _paste_key=""
+        local _paste_silence="${SHELLFRAME_PASTE_SILENCE_LIMIT:-5}"
         while true; do
-            shellframe_read_key _paste_key
+            shellframe_read_key _paste_key "$_paste_silence"
             if (( ${SHELLFRAME_KEY_EOF:-0} )); then
-                # stdin vanished mid-paste: keep what the editor already had,
-                # do NOT submit (rc=2) or report unhandled (rc=1)
                 shellframe_shell_mark_dirty; return 0
             fi
+            (( ${SHELLFRAME_KEY_TIMEOUT:-0} )) && break
             [[ "$_paste_key" == "$_k_paste_end" ]] && break
             _paste_buf="${_paste_buf}${_paste_key}"
         done
         printf -v "_SHELLFRAME_ED_${_ctx}_GOAL_COL" '%d' -1
+        shellframe_sanitize "$_paste_buf" _paste_buf
         _shellframe_ed_insert_text "$_ctx" "$_paste_buf"
         _shellframe_ed_ensure_visible "$_ctx"
         shellframe_shell_mark_dirty; return 0

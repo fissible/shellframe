@@ -174,3 +174,60 @@ shellframe_str_pad() {
     (( _pad < 0 )) && _pad=0
     printf '%s%*s' "$_rendered" "$_pad" ''
 }
+
+# ── shellframe_sanitize ────────────────────────────────────────────────────────
+
+# Strip ANSI escape sequences and C0 control characters from untrusted text,
+# keeping only printable characters plus \n and \t. Handles complete CSI
+# sequences, string sequences (OSC/DCS/SOS/PM/APC — terminated by BEL or ST),
+# two-byte Fe sequences, and a trailing truncated escape. Also drops DEL.
+#
+# Intended for content that did not originate from the application (pasted
+# text, file names) before it enters an editor buffer or the render path (#45).
+# Literal characters are never interpreted: a backslash-n stays two chars.
+#
+# Usage:
+#   sanitized=$(shellframe_sanitize "$raw")        # prints result
+#   shellframe_sanitize "$raw" out_var             # or sets out_var
+shellframe_sanitize() {
+    local _raw="$1" _out_var="${2:-}"
+    local _n="${#_raw}" _i=0 _c="" _state=0 _out=""
+    # Bracket class of C0 controls + DEL, built via printf because $'..'
+    # escapes do not expand inside case-pattern bracket expressions.
+    local _c0_class="[$(printf '\001-\037\177')]"
+    # _state 0 = plain text, 1 = got ESC, 2 = CSI body, 3 = string seq body,
+    # 4 = string seq saw ESC (expecting the '\' of ST)
+    while (( _i < _n )); do
+        _c="${_raw:$_i:1}"
+        case "$_state" in
+            0)
+                case "$_c" in
+                    $'\x1b')                       _state=1 ;;
+                    $'\n'|$'\t')                   _out+="$_c" ;;
+                    $_c0_class)                    ;;   # other C0 + DEL: drop
+                    *)                             _out+="$_c" ;;
+                esac ;;
+            1)
+                case "$_c" in
+                    '[')                        _state=2 ;;
+                    ']'|'P'|'X'|'^'|'_')        _state=3 ;;
+                    *)                          _state=0 ;;   # Fe: consumed
+                esac ;;
+            2)
+                [[ "$_c" == [@-~] ]] && _state=0 ;;
+            3)
+                if [[ "$_c" == $'\x07' ]]; then
+                    _state=0                                  # BEL terminator
+                elif [[ "$_c" == $'\x1b' ]]; then
+                    _state=4                                  # ESC of ST
+                fi ;;
+            4) _state=0 ;;                                    # '\' of ST
+        esac
+        (( _i++ ))
+    done
+    if [[ -n "$_out_var" ]]; then
+        printf -v "$_out_var" '%s' "$_out"
+    else
+        printf '%s' "$_out"
+    fi
+}
