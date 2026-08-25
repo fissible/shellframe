@@ -348,13 +348,21 @@ _shellframe_shell_draw_if_dirty() {
 
 _shellframe_shell_read_key() {
     local _out_var="${1:-_SHELLFRAME_KEY}"
-    local _k="" _c=""
+    local _k="" _c="" _rc=0
+    _SHELLFRAME_KEY_EOF=0
 
     # Timeout: 1 second.  If SIGWINCH fires, bash 3.2 on macOS will NOT
     # interrupt read, but the 1s timeout ensures we re-check the flag.
-    IFS= read -r -n1 -d '' -t 1 _k || true
+    # Distinguish timeout from EOF (#44): `read -t` failing after its timer
+    # returns >128; stdin EOF returns <=128 with an empty value. Treating
+    # EOF like a timeout busy-spins at 100% CPU for as long as /dev/tty
+    # stays open.
+    IFS= read -r -n1 -d '' -t 1 _k || _rc=$?
 
     if [[ -z "$_k" ]]; then
+        if (( _rc > 0 && _rc <= 128 )); then
+            _SHELLFRAME_KEY_EOF=1
+        fi
         printf -v "$_out_var" '%s' ""
         return 0
     fi
@@ -406,6 +414,7 @@ shellframe_shell() {
     local _prefix="$1"
     local _current="${2:-ROOT}"
     _SHELLFRAME_SHELL_RUNNING=1
+    _SHELLFRAME_SHELL_EOF=0
 
     local _saved_stty
     _saved_stty=$(shellframe_raw_save)
@@ -482,6 +491,12 @@ shellframe_shell() {
 
             local _key=""
             _shellframe_shell_read_key _key
+            # Stdin EOF (tty detached, stdin redirected closed): quit the
+            # runtime cleanly with a non-zero status instead of spinning (#44).
+            if (( ${_SHELLFRAME_KEY_EOF:-0} )); then
+                _SHELLFRAME_SHELL_EOF=1
+                _current="__QUIT__"; _screen_done=1; continue
+            fi
             if [[ -z "$_key" ]]; then
                 # Timeout: tick toasts so they expire even when user is idle
                 if (( ${#_SHELLFRAME_TOAST_QUEUE[@]} > 0 )); then
@@ -666,4 +681,8 @@ shellframe_shell() {
     elif [[ -w /dev/tty ]]; then
         printf '\033[?2004l\033[?1006l\033[?1000l\033[?25h\033[?1049l' >/dev/tty 2>/dev/null
     fi
+    # Stdin EOF quit (#44): report non-zero so callers can distinguish a
+    # clean user exit from the runtime losing its input source.
+    (( ${_SHELLFRAME_SHELL_EOF:-0} )) && return 1
+    return 0
 }

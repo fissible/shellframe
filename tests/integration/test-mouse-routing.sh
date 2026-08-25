@@ -83,4 +83,11 @@ _out=$( _pty "--expect" "apple" $'\x03' ) || _irc=$?
 assert_eq "130" "$_irc"
 assert_not_null "$_out"
 
+# ── #44: stdin EOF quits the runtime instead of busy-spinning ────────────────
+
+ptyunit_test_begin "shell-runtime #44: stdin EOF exits promptly with rc=1"
+_eof_rc=0
+_eout=$( python3 "$PTY_RUN" "$SHELLFRAME_DIR/tests/fixtures/shell-eof.sh" ) || _eof_rc=$?
+assert_contains "$_eout" "shell-returned:1"
+assert_eq "0" "$_eof_rc"
 ptyunit_test_summary
