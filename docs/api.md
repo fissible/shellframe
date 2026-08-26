@@ -2,17 +2,33 @@
 
 ---
 
-## `src/themes` + theming (#53)
+## Theming (`src/draw.sh` + `shellframe_theme_*`, #53)
+
+The `SHELLFRAME_*` presentation globals (BOLD, DIM, RESET, REVERSE, GREEN,
+RED, YELLOW, PURPLE, GRAY, WHITE) are read at render time; a theme is a
+reassignment.
 
 | Call | Effect |
 |---|---|
-| `shellframe_theme_load mono` | attributes only, zero color |
-| `shellframe_theme_load default` | terminfo-derived defaults (restored) |
-| `shellframe_theme_load ./my-theme.sh` | custom theme: any file assigning `SHELLFRAME_*` presentation globals |
+| `shellframe_theme_load mono` | attributes only, every color deliberately empty |
+| `shellframe_theme_load default` | terminfo-derived defaults (one batched `tput -S` query) |
+| `shellframe_theme_load ./my-theme.sh` | custom theme — path **must contain `/`**; bare names are reserved for shipped themes |
 | `shellframe_theme_list` | prints shipped theme names |
 
-The active theme name is in `SHELLFRAME_THEME`. Failed loads change nothing.
-Set `NO_COLOR`-style deployments via `shellframe_theme_load mono`.
+**Semantics:**
+- *Overlay*: a custom file may assign any subset of the constants;
+  unassigned ones keep their current values. Source `default` first for a
+  full reset.
+- *Failure safety*: missing files and files that fail to source leave the
+  previous palette fully intact (`return 1`, snapshot + restore).
+- *Degradation contract*: shipped themes produce EMPTY constants when
+  terminfo cannot supply a capability — plain text, never raw SGR. Widget
+  sites must therefore use `${VAR-fallback}` (**dash**, not `:-`) so mono's
+  deliberate empties suppress hardcoded ANSI. A lint assertion in
+  test-theme.sh enforces this.
+- `SHELLFRAME_THEME` holds the active theme name.
+- `shellframe_platform_check` warns on Windows-native environments
+  (msys/cygwin); returns 1 there, 0 elsewhere.
 
 ## `src/clip.sh`
 

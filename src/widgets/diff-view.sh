@@ -140,10 +140,10 @@ _shellframe_dv_render_pane() {
     local _scroll_top
     shellframe_scroll_top "$_scroll_ctx" _scroll_top
 
-    local _reset="${SHELLFRAME_RESET:-}"
-    local _gray="${SHELLFRAME_GRAY:-}"
-    local _bold="${SHELLFRAME_BOLD:-}"
-    local _reverse="${SHELLFRAME_REVERSE:-}"
+    local _reset="${SHELLFRAME_RESET-}"
+    local _gray="${SHELLFRAME_GRAY-}"
+    local _bold="${SHELLFRAME_BOLD-}"
+    local _reverse="${SHELLFRAME_REVERSE-}"
 
     # Add: brighter green text, slightly tinted green bg
     # Del: warmer red text, slightly tinted red bg
@@ -464,9 +464,9 @@ shellframe_diff_view_render() {
     # Render pane footers (use full-height bounds for correct widths)
     if (( _has_footer )); then
         local _footer_row=$(( _top + _height - 1 ))
-        local _gray="${SHELLFRAME_GRAY:-}"
-        local _reset="${SHELLFRAME_RESET:-}"
-        local _rev="${SHELLFRAME_REVERSE:-}"
+        local _gray="${SHELLFRAME_GRAY-}"
+        local _reset="${SHELLFRAME_RESET-}"
+        local _rev="${SHELLFRAME_REVERSE-}"
         local _ftmp=""
 
         # Get full-width pane bounds (not the content-height-reduced ones)
@@ -476,7 +476,7 @@ shellframe_diff_view_render() {
         shellframe_split_bounds "dv_split" 1 "$_top" "$_left" "$_width" "$_height" \
             _frt _frl _frw _frh
 
-        local _white="${SHELLFRAME_WHITE:-}"
+        local _white="${SHELLFRAME_WHITE-}"
 
         # Left footer
         local _lf="${SHELLFRAME_DIFF_VIEW_LEFT_FOOTER:-}"
@@ -510,7 +510,7 @@ shellframe_diff_view_render() {
 shellframe_diff_view_render_side() {
     local _top="$1" _left="$2" _width="$3" _height="$4" _side="$5"
 
-    local _reset="${SHELLFRAME_RESET:-}"
+    local _reset="${SHELLFRAME_RESET-}"
     local _content_top="$_top"
     local _content_h="$_height"
 
@@ -536,9 +536,9 @@ shellframe_diff_view_render_side() {
     # Render footer
     if (( _has_footer )); then
         local _footer_row=$(( _top + _height - 1 ))
-        local _reset="${SHELLFRAME_RESET:-}"
-        local _white="${SHELLFRAME_WHITE:-}"
-        local _rev="${SHELLFRAME_REVERSE:-}"
+        local _reset="${SHELLFRAME_RESET-}"
+        local _white="${SHELLFRAME_WHITE-}"
+        local _rev="${SHELLFRAME_REVERSE-}"
         local _ftmp=""
 
         local _ftext="${_footer_key:0:$(( _width - ${#_date_key} - 3 ))}"

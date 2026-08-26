@@ -276,7 +276,7 @@ shellframe_tree_render() {
 
     shellframe_scroll_resize "$_ctx" "$_height" 1
 
-    local _rev="${SHELLFRAME_REVERSE:-$'\033[7m'}"
+    local _rev="${SHELLFRAME_REVERSE-$'\033[7m'}"
 
     local _view_arr
     _shellframe_tree_parse_view "$_ctx" _view_arr

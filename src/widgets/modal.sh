@@ -93,7 +93,7 @@ shellframe_modal_init() {
 _shellframe_modal_render_buttons() {
     local _row="$1" _left="$2" _inner_w="$3" _active="$4"
     local _n_btns=${#SHELLFRAME_MODAL_BUTTONS[@]}
-    local _rev="${SHELLFRAME_REVERSE:-$'\033[7m'}"
+    local _rev="${SHELLFRAME_REVERSE-$'\033[7m'}"
 
     # Clear the row
     shellframe_fb_fill "$_row" "$_left" "$_inner_w"

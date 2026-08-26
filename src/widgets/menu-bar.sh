@@ -160,9 +160,9 @@ shellframe_menubar_render() {
     local _state="${!_state_var}"
     local _bar_idx="${!_idx_var}"
 
-    local _rev="${SHELLFRAME_REVERSE:-$'\033[7m'}"
-    local _rst="${SHELLFRAME_RESET:-$'\033[0m'}"
-    local _act="${SHELLFRAME_MENUBAR_ACTIVE_COLOR:-${SHELLFRAME_BOLD:-$'\033[1m'}}"
+    local _rev="${SHELLFRAME_REVERSE-$'\033[7m'}"
+    local _rst="${SHELLFRAME_RESET-$'\033[0m'}"
+    local _act="${SHELLFRAME_MENUBAR_ACTIVE_COLOR:-${SHELLFRAME_BOLD-$'\033[1m'}}"
 
     # ── Erase previous overlay panels ─────────────────────────────────────────
     local _prev_dd_w_var="_SHELLFRAME_MB_${_ctx}_PREV_DD_W"
