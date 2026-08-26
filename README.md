@@ -4,7 +4,12 @@ A composable, full-featured terminal UI library for bash. Designed to be
 sourced by other tools — each widget gathers input from a human and returns
 clean data to the caller.
 
-**Requirements:** bash 3.2+ (macOS default), a VT100-compatible terminal.
+**Requirements:** bash 3.2+ (macOS default), a VT100-compatible terminal,
+and a POSIX environment (macOS/Linux/WSL — native Windows is not supported).
+
+> **Windows users:** Git-Bash/msys/cygwin cannot provide the PTY semantics
+> shellframe depends on; run under WSL instead. The loader warns if it
+> detects a Windows-native environment.
 
 > **Already using file descriptor 3?** shellframe opens a persistent tty
 > fd (default 3) for rendering. If your script owns fd 3, set

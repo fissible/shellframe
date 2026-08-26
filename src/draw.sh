@@ -24,14 +24,41 @@ shellframe_pad_left() {
     printf '%s%*s' "$rendered" "$pad" ''
 }
 
-# ── Color constants ───────────────────────────────────────────────────────────
+# ── Color constants & theming (#53) ──────────────────────────────────────────
+#
+# The SHELLFRAME_* presentation globals are plain variables read at render
+# time, so loading a theme is just reassigning them. Shipped themes live in
+# src/themes/; custom themes are any file that assigns those globals.
+# All render sites use %s with these values (see #42), so real-byte ANSI in
+# theme files and literal text in consumer data cannot cross-contaminate.
 
-SHELLFRAME_BOLD=$(tput bold     2>/dev/null || true)
-SHELLFRAME_DIM=$(tput dim       2>/dev/null || true)
-SHELLFRAME_RESET=$(tput sgr0    2>/dev/null || true)
-SHELLFRAME_REVERSE=$(tput rev   2>/dev/null || true)
-SHELLFRAME_GREEN=$(tput setaf 2 2>/dev/null || true)
-SHELLFRAME_RED=$(tput setaf 1   2>/dev/null || true)
-SHELLFRAME_PURPLE=$(tput setaf 5 2>/dev/null || true)
-SHELLFRAME_GRAY=$(tput setaf 8 2>/dev/null || tput setaf 7 2>/dev/null || true)
-SHELLFRAME_WHITE=$(tput setaf 7 2>/dev/null || true)
+_SF_THEMES_DIR="$SHELLFRAME_DIR/src/themes"
+SHELLFRAME_THEME="default"
+source "$_SF_THEMES_DIR/default.sh"
+
+# List shipped themes (one per line). Custom themes live outside the library
+# and are not enumerated.
+shellframe_theme_list() {
+    printf 'default\nmono\n'
+}
+
+# Load a built-in theme by name or a custom theme by file path.
+# On failure the previously loaded theme remains active (fail-open-free:
+# nothing changes unless the new theme sources successfully).
+shellframe_theme_load() {
+    local _name="${1:-default}"
+    case "$_name" in
+        default|mono)
+            source "$_SF_THEMES_DIR/$_name.sh" ;;
+        */*)
+            [[ -f "$_name" ]] || {
+                printf 'shellframe: theme file not found: %s\n' "$_name" >&2
+                return 1
+            }
+            source "$_name" ;;
+        *)
+            printf 'shellframe: unknown theme: %s (shipped: default, mono)\n' "$_name" >&2
+            return 1 ;;
+    esac
+    SHELLFRAME_THEME="$_name"
+}

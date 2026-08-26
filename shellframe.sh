@@ -6,6 +6,16 @@
 
 SHELLFRAME_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Windows-native environments (Git-Bash / msys / cygwin) cannot provide the
+# PTY semantics shellframe depends on — warn early instead of failing
+# obscurely mid-render (#58).
+case "${OSTYPE:-}" in
+    msys*|cygwin*)
+        printf 'shellframe: WARNING — %s is a Windows-native environment.\n' "${OSTYPE}" >&2
+        printf 'shellframe: a POSIX layer (WSL recommended) is required for correct terminal behavior.\n' >&2
+        ;;
+esac
+
 source "$SHELLFRAME_DIR/src/screen.sh"
 source "$SHELLFRAME_DIR/src/input.sh"
 source "$SHELLFRAME_DIR/src/draw.sh"
