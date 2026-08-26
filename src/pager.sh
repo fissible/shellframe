@@ -34,13 +34,16 @@ shellframe_dump_lines() {
     local -a _lines=()
     eval "_lines=(\${$_arr_name[@]+\"\${$_arr_name[@]}\"})"
 
+    # Sanitize per line (reuses the #45 scrubber — full CSI/OSC/DCS/nF + C0
+    # coverage; a bespoke sed here leaked OSC payloads like \033]0;t\007).
     {
         [[ -n "$_header" ]] && printf '%s\n' "$_header"
-        local _line
+        local _line _clean
         for _line in "${_lines[@]+"${_lines[@]}"}"; do
-            printf '%s\n' "$_line"
+            shellframe_sanitize "$_line" _clean
+            printf '%s\n' "$_clean"
         done
-    } | LC_ALL=C sed 's/\x1b\[[0-?]*[ -\/]*[@-~]//g; s/\x1b[@-Z\\-_]//g' > "$_out"
+    } > "$_out"
 }
 
 # shellframe_pager_view <file> <saved_stty>
@@ -54,9 +57,14 @@ shellframe_pager_view() {
     printf '\033[?25h\033[?2004l\033[?1006l\033[?1000l\033[?1049l' >/dev/tty 2>/dev/null
     stty "$_saved_stty" 2>/dev/null || stty sane 2>/dev/null
 
-    if type "$_pager" >/dev/null 2>&1; then
-        "$_pager" -- "$_file" >/dev/tty </dev/tty 2>/dev/tty
+    # PAGER commonly carries arguments ("less -R"): split into words and
+    # probe the BINARY, not the whole string (#62 review).
+    local -a _pager_argv=()
+    read -ra _pager_argv <<< "$_pager"
+    if [[ ${#_pager_argv[@]} -gt 0 ]] && type "${_pager_argv[0]}" >/dev/null 2>&1; then
+        "${_pager_argv[@]}" -- "$_file" >/dev/tty </dev/tty 2>/dev/tty
     else
+        printf 'shellframe: pager "%s" not found, falling back to cat\n' "$_pager" >&2 2>/dev/tty
         cat -- "$_file" >/dev/tty
     fi
 

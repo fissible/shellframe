@@ -45,4 +45,16 @@ ptyunit_test_begin "status #52: non-tty prints plain line"
 out=$(shellframe_status "step one complete")
 assert_eq "step one complete" "$out"
 
+
+# ── #56 review: dump_lines strips OSC payloads (sanitize parity) ──────────────
+
+ptyunit_test_begin "dump_lines: OSC payload stripped, not leaked (#62 review)"
+_dump_f=$(mktemp)
+SHELLFRAME_LIST_ITEMS=($'\033]0;title\007plain' $'\033[31mred\033[0m')
+shellframe_dump_lines SHELLFRAME_LIST_ITEMS "" "$_dump_f"
+_dump_out=$(cat "$_dump_f")
+assert_eq "plain" "$(head -n1 "$_dump_f")"
+assert_eq "red" "$(sed -n '2p' "$_dump_f")"
+rm -f "$_dump_f"
+
 ptyunit_test_summary
