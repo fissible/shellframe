@@ -110,6 +110,20 @@ SHELLFRAME_TBL_BELOW_ROWS=0
 #          2 = confirm (Enter/c/C)
 #          3 = quit (q/Q)
 _shellframe_table_on_key() {
+    # v: open headers + labels in ${PAGER:-less} (#56)
+    if [[ "$1" == "v" ]]; then
+        local _pf _hdr=""
+        _pf=$(mktemp "${TMPDIR:-/tmp}/sf-dump.XXXXXX")
+        if (( ${#SHELLFRAME_TBL_HEADERS[@]} > 0 )); then
+            _hdr="${SHELLFRAME_TBL_HEADERS[*]}"
+        fi
+        shellframe_dump_lines SHELLFRAME_TBL_LABELS "$_hdr" "$_pf"
+        shellframe_pager_view "$_pf" "$SHELLFRAME_TBL_SAVED_STTY"
+        shellframe_raw_enter
+        shellframe_screen_enter
+        return 0
+    fi
+
     local _key="$1" _n="$2"
     if   [[ "$_key" == "$SHELLFRAME_KEY_UP" ]]; then
         (( SHELLFRAME_TBL_SELECTED > 0 )) && (( SHELLFRAME_TBL_SELECTED-- )) || true
@@ -151,6 +165,14 @@ _shellframe_table_scroll_check() {
 }
 
 shellframe_table() {
+    if shellframe_pager_requested; then
+        local _dump_hdr=""
+        [[ -n "${SHELLFRAME_TBL_HEADERS[*]:-}" ]] && _dump_hdr="${SHELLFRAME_TBL_HEADERS[*]}"
+        shellframe_dump_lines SHELLFRAME_TBL_LABELS "$_dump_hdr" /dev/stdout
+        return 0
+    fi
+
+
     local _draw_row_fn="${1:-}"
     local _extra_key_fn="${2:-}"
     local _footer="${3:-↑/↓ move  Space/→ cycle  Enter confirm  q quit}"
