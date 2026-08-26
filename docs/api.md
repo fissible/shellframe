@@ -2,6 +2,18 @@
 
 ---
 
+## `src/themes` + theming (#53)
+
+| Call | Effect |
+|---|---|
+| `shellframe_theme_load mono` | attributes only, zero color |
+| `shellframe_theme_load default` | terminfo-derived defaults (restored) |
+| `shellframe_theme_load ./my-theme.sh` | custom theme: any file assigning `SHELLFRAME_*` presentation globals |
+| `shellframe_theme_list` | prints shipped theme names |
+
+The active theme name is in `SHELLFRAME_THEME`. Failed loads change nothing.
+Set `NO_COLOR`-style deployments via `shellframe_theme_load mono`.
+
 ## `src/clip.sh`
 
 **`shellframe_sanitize raw [out_var]`**
