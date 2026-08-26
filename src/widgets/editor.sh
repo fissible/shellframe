@@ -907,8 +907,8 @@ shellframe_editor_render() {
     local _col="${!_col_var:-0}"
     local _count="${!_count_var:-1}"
 
-    local _rev="${SHELLFRAME_REVERSE:-$'\033[7m'}"
-    local _rst="${SHELLFRAME_RESET:-$'\033[0m'}"
+    local _rev="${SHELLFRAME_REVERSE-$'\033[7m'}"
+    local _rst="${SHELLFRAME_RESET-$'\033[0m'}"
 
     # DIRECT_RENDER: fast path writes directly to fd3 (typing responsiveness).
     # Framebuffer path: writes per-row fragments to _SF_ROW_CURR.

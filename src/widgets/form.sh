@@ -246,7 +246,7 @@ shellframe_form_render() {
         local _lbl_padded
         printf -v _lbl_padded '%-*s' "$_lw" "$_lbl"
         local _lbl_style="${SHELLFRAME_FORM_BG:-}"
-        (( _is_focused )) && _lbl_style="${_lbl_style}${SHELLFRAME_BOLD:-$'\033[1m'}"
+        (( _is_focused )) && _lbl_style="${_lbl_style}${SHELLFRAME_BOLD-$'\033[1m'}"
         shellframe_fb_print "$_row" "$(( _left + 2 ))" "${_lbl_padded}:" "$_lbl_style"
         shellframe_fb_fill  "$_row" "$(( _left + 2 + _lw + 1 ))" 2 " " "${SHELLFRAME_FORM_BG:-}"
 
@@ -263,7 +263,7 @@ shellframe_form_render() {
         if [[ "$_type" == "readonly" ]]; then
             local _rtext=""
             shellframe_cur_text "$_fctx" _rtext
-            local _gray="${SHELLFRAME_GRAY:-$'\033[2m'}"
+            local _gray="${SHELLFRAME_GRAY-$'\033[2m'}"
             shellframe_fb_print "$_row" "$_field_left" "$_rtext" "${SHELLFRAME_FORM_BG:-}${_gray}"
         else
             shellframe_field_render "$_row" "$_field_left" "$_field_w" 1
@@ -277,7 +277,7 @@ shellframe_form_render() {
     # Error row at bottom (if set)
     if [[ -n "$_err" ]]; then
         local _err_row=$(( _top + _height - 1 ))
-        local _red="${SHELLFRAME_RED:-$'\033[31m'}"
+        local _red="${SHELLFRAME_RED-$'\033[31m'}"
         local _clipped="$_err"
         if (( ${#_clipped} > _width - 2 )); then
             _clipped="${_clipped:0:$(( _width - 3 ))}…"

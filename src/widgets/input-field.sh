@@ -111,7 +111,7 @@ shellframe_field_render() {
     local _cur_vis=$(( _pos - _scroll ))
 
     if (( _focused )); then
-        local _rev="${SHELLFRAME_REVERSE:-$'\033[7m'}"
+        local _rev="${SHELLFRAME_REVERSE-$'\033[7m'}"
         local _fbg="${SHELLFRAME_FIELD_BG:-}"
 
         # Reset prefix: \033[0m + bg ensures reverse video from cursor cell

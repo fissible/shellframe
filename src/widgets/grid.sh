@@ -138,11 +138,11 @@ shellframe_grid_render() {
     local _ncols="${SHELLFRAME_GRID_COLS:-0}"
     local _pk_cols="${SHELLFRAME_GRID_PK_COLS:-0}"
 
-    local _rev="${SHELLFRAME_REVERSE:-$'\033[7m'}"
-    local _rst="${SHELLFRAME_RESET:-$'\033[0m'}"
-    local _bold="${SHELLFRAME_BOLD:-$'\033[1m'}"
-    local _gray="${SHELLFRAME_GRAY:-$'\033[90m'}"
-    local _white="${SHELLFRAME_WHITE:-$'\033[37m'}"
+    local _rev="${SHELLFRAME_REVERSE-$'\033[7m'}"
+    local _rst="${SHELLFRAME_RESET-$'\033[0m'}"
+    local _bold="${SHELLFRAME_BOLD-$'\033[1m'}"
+    local _gray="${SHELLFRAME_GRAY-$'\033[90m'}"
+    local _white="${SHELLFRAME_WHITE-$'\033[37m'}"
 
     # ── Layout: header + separator occupy rows top and top+1 ──────────────────
     local _has_header=0

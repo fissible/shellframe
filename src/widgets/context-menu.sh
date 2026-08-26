@@ -167,7 +167,7 @@ shellframe_cmenu_render() {
     local _scroll_top=0
     shellframe_scroll_top "$_ctx" _scroll_top
 
-    local _rev="${SHELLFRAME_REVERSE:-$'\033[7m'}"
+    local _rev="${SHELLFRAME_REVERSE-$'\033[7m'}"
     local _r
     for (( _r=0; _r<_ih; _r++ )); do
         local _row=$(( _it + _r ))

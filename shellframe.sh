@@ -6,6 +6,19 @@
 
 SHELLFRAME_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Windows-native environments cannot provide the PTY semantics shellframe
+# depends on. Detection is exposed as a FUNCTION (the library must have no
+# source-time side effects); callers may invoke it after sourcing (#58).
+shellframe_platform_check() {
+    case "${OSTYPE:-}" in
+        msys*|cygwin*)
+            printf 'shellframe: %s is a Windows-native environment.\n' "${OSTYPE}" >&2
+            printf 'shellframe: a POSIX layer (WSL recommended) is required for correct terminal behavior.\n' >&2
+            return 1 ;;
+        *) return 0 ;;
+    esac
+}
+
 source "$SHELLFRAME_DIR/src/screen.sh"
 source "$SHELLFRAME_DIR/src/input.sh"
 source "$SHELLFRAME_DIR/src/draw.sh"

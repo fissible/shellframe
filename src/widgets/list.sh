@@ -75,7 +75,7 @@ shellframe_list_render() {
 
     # Render optional title row (consumes 1 row from the list area)
     if [[ -n "$_title" ]] && (( _height > 1 )); then
-        local _tstyle="${SHELLFRAME_LIST_TITLE_STYLE:-${SHELLFRAME_GRAY:-$'\033[2m'}}"
+        local _tstyle="${SHELLFRAME_LIST_TITLE_STYLE:-${SHELLFRAME_GRAY-$'\033[2m'}}"
         shellframe_fb_fill "$_top" "$_left" "$_width" " " "$_lbg"
         local _tclipped
         shellframe_str_clip_ellipsis "$_title" "$_title" "$(( _width - 1 ))" _tclipped
@@ -87,7 +87,7 @@ shellframe_list_render() {
     # Keep scroll viewport in sync with current render height
     shellframe_scroll_resize "$_ctx" "$_height" 1
 
-    local _rev="${SHELLFRAME_REVERSE:-$'\033[7m'}"
+    local _rev="${SHELLFRAME_REVERSE-$'\033[7m'}"
 
     local _scroll_top
     shellframe_scroll_top "$_ctx" _scroll_top

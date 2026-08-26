@@ -61,9 +61,9 @@ shellframe_tabbar_render() {
     (( _active >= _n )) && _active=$(( _n - 1 )) || true
     (( _active < 0 ))   && _active=0             || true
 
-    local _rev="${SHELLFRAME_REVERSE:-$'\033[7m'}"
+    local _rev="${SHELLFRAME_REVERSE-$'\033[7m'}"
     local _bg="${SHELLFRAME_TABBAR_BG:-$_rev}"
-    local _bold="${SHELLFRAME_BOLD:-$'\033[1m'}"
+    local _bold="${SHELLFRAME_BOLD-$'\033[1m'}"
 
     local _remaining="$_width" _c="$_left" _i
     for (( _i=0; _i<_n; _i++ )); do
