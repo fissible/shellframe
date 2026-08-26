@@ -130,28 +130,20 @@ clean data, not screen output.
 - `shellframe_app` event handlers are called directly (not in subshells) — they can
   freely mutate application globals. See the subshell trap in Hard-won lessons.
 
-### 4. Self-configuration and portability
+### 4. Portability
 
-shellframe auto-detects the runtime environment on first load and writes a local
-config file (`.toolrc.local` in the project root, gitignored) so settings are
-computed once and reused.
+Capability selection happens **inline at call sites**, not via a cached config:
 
-**On load, shellframe detects and persists:**
-- Bash version (affects `read -t` precision, fd allocation syntax, `printf` behavior)
-- Whether `{var}` fd allocation is available (bash 4.1+; macOS has 3.2)
-- Whether `read -t` accepts decimals (bash 4+; 3.2 requires integers)
-- Terminal capabilities (`tput` availability, `$TERM` value)
+- `BASH_VERSINFO[0] >= 4` guards for decimal `read -t`, adaptive escape
+  timeouts, and anything else that differs across 3.2 / 4.x / 5.x.
+- Screen control uses raw ANSI/VT100 sequences rather than `tput`, so a
+  misconfigured `TERM` cannot silently degrade rendering.
+- There is no `.toolrc.local`. An earlier design cached detection results in
+  one; it was never implemented, and no code consumes such flags. Do not add
+  references to it.
 
-**Feature flags written to `.toolrc.local`:**
-```bash
-SHELLFRAME_BASH_VERSION=3      # major version
-SHELLFRAME_FD_ALLOC=0          # 1 if {varname}>&1 syntax works
-SHELLFRAME_READ_DECIMAL_T=0    # 1 if read -t 0.1 works
-SHELLFRAME_TPUT_OK=1           # 1 if tput is functional
-```
-
-These flags are sourced by `shellframe.sh` at load time. Individual functions check
-them to select the right code path rather than duplicating version detection.
+The Docker matrix (bash 3.2 / 4.4 / 5.x) is the portability contract: a
+failure in any leg is a bug.
 
 ### 5. Docker-based cross-version test suite
 
@@ -221,10 +213,6 @@ active. Always use the guard form when the array may be empty:
 ```bash
 "${arr[@]+"${arr[@]}"}"
 ```
-
-## Gitignore
-
-`.toolrc.local` must be gitignored — it is per-machine, not per-repo.
 
 # Tome Context Store
 This project uses Tome (`.tome.db`) for structured context.

@@ -56,3 +56,25 @@ out=$( python3 "$PTY_RUN" "$SHELLFRAME_DIR/tests/fixtures/confirm-eof.sh" ) || _
 assert_contains "$out" "confirm-rc:1"
 assert_eq "0" "$_ce_rc"
 ptyunit_test_summary
+
+# ── #48 review round 3: consumer-owned fd 3 survives a v1 widget ─────────────
+
+ptyunit_test_begin "confirm #48: consumer fd 3 payload intact around widget run"
+_f48=$(mktemp)
+_pty48_rc=0
+out=$( SHELLFRAME_TTY_FD=7 SF48_OUT="$_f48" python3 "$PTY_RUN" "$SHELLFRAME_DIR/tests/fixtures/fd3-consumer.sh" $'y' 2>/dev/null ) || _pty48_rc=$?
+assert_contains "$out" "Proceed"
+assert_eq "before" "$(head -n1 "$_f48")"
+assert_contains "$(cat "$_f48")" "after rc=0"
+rm -f "$_f48"
+
+ptyunit_test_begin "confirm #48b: consumer-owned fd 4 survives (save slot must dodge it)"
+_f4=$(mktemp)
+_pty48_rc=0
+out=$( SHELLFRAME_TTY_FD=7 SF48_OUT="$_f4" SF48_FD_NUM=4 python3 "$PTY_RUN" "$SHELLFRAME_DIR/tests/fixtures/fd3-consumer.sh" $'y' 2>/dev/null ) || _pty48_rc=$?
+assert_contains "$out" "Proceed"
+assert_eq "before" "$(head -n1 "$_f4")"
+assert_contains "$(cat "$_f4")" "after rc=0"
+rm -f "$_f4"
+
+ptyunit_test_summary

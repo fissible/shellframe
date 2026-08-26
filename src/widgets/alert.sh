@@ -18,7 +18,7 @@
 #               number of [detail ...] args (mismatch → incorrect box height)
 #   [detail ...] — optional plain-text lines shown below the title
 # Renders the alert box to fd 3. Caller must open fd 3 before calling
-# (e.g. exec 3>/dev/tty or exec 3>"$tmpfile"). Writing to a closed fd 3
+# (e.g. exec "$_SF_TTY_FD">/dev/tty or exec 3>"$tmpfile"). Writing to a closed fd 3
 # silently discards all output.
 # Reads SHELLFRAME_* color globals.
 _shellframe_alert_render() {
@@ -54,13 +54,13 @@ _shellframe_alert_render() {
     local _i
 
     # top border
-    printf '\033[%d;%dH%s+' "$_row" "$_c0" "$SHELLFRAME_GRAY" >&3
-    for (( _i=0; _i<_inner; _i++ )); do printf '-' >&3; done
-    printf '+%s' "$SHELLFRAME_RESET" >&3
+    printf '\033[%d;%dH%s+' "$_row" "$_c0" "$SHELLFRAME_GRAY" >&"$_SF_TTY_FD"
+    for (( _i=0; _i<_inner; _i++ )); do printf '-' >&"$_SF_TTY_FD"; done
+    printf '+%s' "$SHELLFRAME_RESET" >&"$_SF_TTY_FD"
     (( _row++ ))
 
     # blank
-    printf '\033[%d;%dH%s|%*s|%s' "$_row" "$_c0" "$SHELLFRAME_GRAY" "$_inner" "" "$SHELLFRAME_RESET" >&3
+    printf '\033[%d;%dH%s|%*s|%s' "$_row" "$_c0" "$SHELLFRAME_GRAY" "$_inner" "" "$SHELLFRAME_RESET" >&"$_SF_TTY_FD"
     (( _row++ ))
 
     # title (centered, bold)
@@ -73,11 +73,11 @@ _shellframe_alert_render() {
         "$_tlpad" "" \
         "$SHELLFRAME_BOLD$SHELLFRAME_WHITE" "$_title" "$SHELLFRAME_RESET" \
         "$_trpad" "" \
-        "$SHELLFRAME_GRAY" "$SHELLFRAME_RESET" >&3
+        "$SHELLFRAME_GRAY" "$SHELLFRAME_RESET" >&"$_SF_TTY_FD"
     (( _row++ ))
 
     # blank
-    printf '\033[%d;%dH%s|%*s|%s' "$_row" "$_c0" "$SHELLFRAME_GRAY" "$_inner" "" "$SHELLFRAME_RESET" >&3
+    printf '\033[%d;%dH%s|%*s|%s' "$_row" "$_c0" "$SHELLFRAME_GRAY" "$_inner" "" "$SHELLFRAME_RESET" >&"$_SF_TTY_FD"
     (( _row++ ))
 
     # detail lines
@@ -90,24 +90,24 @@ _shellframe_alert_render() {
                 "$_row" "$_c0" \
                 "$SHELLFRAME_GRAY" "$SHELLFRAME_RESET" \
                 "$_line" "$_rpad" "" \
-                "$SHELLFRAME_GRAY" "$SHELLFRAME_RESET" >&3
+                "$SHELLFRAME_GRAY" "$SHELLFRAME_RESET" >&"$_SF_TTY_FD"
             (( _row++ ))
         done
-        printf '\033[%d;%dH%s|%*s|%s' "$_row" "$_c0" "$SHELLFRAME_GRAY" "$_inner" "" "$SHELLFRAME_RESET" >&3
+        printf '\033[%d;%dH%s|%*s|%s' "$_row" "$_c0" "$SHELLFRAME_GRAY" "$_inner" "" "$SHELLFRAME_RESET" >&"$_SF_TTY_FD"
         (( _row++ ))
     fi
 
     # bottom border
-    printf '\033[%d;%dH%s+' "$_row" "$_c0" "$SHELLFRAME_GRAY" >&3
-    for (( _i=0; _i<_inner; _i++ )); do printf '-' >&3; done
-    printf '+%s' "$SHELLFRAME_RESET" >&3
+    printf '\033[%d;%dH%s+' "$_row" "$_c0" "$SHELLFRAME_GRAY" >&"$_SF_TTY_FD"
+    for (( _i=0; _i<_inner; _i++ )); do printf '-' >&"$_SF_TTY_FD"; done
+    printf '+%s' "$SHELLFRAME_RESET" >&"$_SF_TTY_FD"
     (( _row++ ))
 
     # footer hint
     local _hint="Any key to continue"
     local _hcol=$(( _c0 + (_box_w - ${#_hint}) / 2 ))
     (( _hcol < 1 )) && _hcol=1
-    printf '\033[%d;%dH%s%s%s' "$_row" "$_hcol" "$SHELLFRAME_GRAY" "$_hint" "$SHELLFRAME_RESET" >&3
+    printf '\033[%d;%dH%s%s%s' "$_row" "$_hcol" "$SHELLFRAME_GRAY" "$_hint" "$SHELLFRAME_RESET" >&"$_SF_TTY_FD"
 }
 
 shellframe_alert() {
@@ -118,8 +118,12 @@ shellframe_alert() {
     local _n_details=${#_details[@]}
 
     # ── fd plumbing ───────────────────────────────────────────────────────────
-    exec 3>&1
-    exec 1>&3
+    local _save_fd
+    _save_fd=$(_shellframe_pick_save_fd)
+    eval "exec ${_save_fd}>&1"
+    # Ensure the tty fd exists even though screen_enter runs later.
+    { true >&"$_SF_TTY_FD"; } 2>/dev/null || eval "exec $_SF_TTY_FD>/dev/tty"
+    exec 1>&"$_SF_TTY_FD"
 
     # ── cleanup ───────────────────────────────────────────────────────────────
     local _alrt_saved_stty
@@ -129,8 +133,8 @@ shellframe_alert() {
         shellframe_raw_exit "$_alrt_saved_stty"
         shellframe_cursor_show
         shellframe_screen_exit
-        { exec 1>&3; } 2>/dev/null || true
-        { exec 3>&-; } 2>/dev/null || true
+        { eval "exec 1>&${_save_fd}"; } 2>/dev/null || true   # stdout <- save slot
+        { eval "exec ${_save_fd}>&-"; } 2>/dev/null || true   # close the slot
     }
     trap '_alrt_exit; exit 1' INT TERM
 

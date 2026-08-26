@@ -6,6 +6,11 @@ clean data to the caller.
 
 **Requirements:** bash 3.2+ (macOS default), a VT100-compatible terminal.
 
+> **Already using file descriptor 3?** shellframe opens a persistent tty
+> fd (default 3) for rendering. If your script owns fd 3, set
+> `SHELLFRAME_TTY_FD` to a free number **before sourcing** — e.g.
+> `SHELLFRAME_TTY_FD=7 source ./shellframe.sh`.
+
 > **Character-width limitation:** layout assumes single-column characters.
 > Wide characters (CJK, emoji) render in two terminal columns and combining
 > marks add none, but `shellframe_str_len` and every aligned surface (panel
@@ -28,9 +33,11 @@ clean data to the caller.
 - **Two audiences** — human-friendly keyboard behavior with discoverable footer
   hints; developer-friendly exit codes, namespaced globals, and stdout/tty split
   so widgets work correctly inside `$()` command substitution.
-- **Self-configuring** — on first load, shellframe detects the bash version and
-  terminal capabilities, writes feature flags to `.toolrc.local`, and reads them
-  back on subsequent runs so code paths are chosen once per machine.
+- **Runtime capability checks** — code paths select themselves per call site
+  (`BASH_VERSINFO` guards for `read -t` precision and fd-allocation syntax,
+  raw ANSI sequences instead of `tput` for screen control), so there is no
+  config file to go stale. (An earlier design cached detection results in a
+  `.toolrc.local`; it was never implemented and the docs now say so.)
 - **Cross-version tested** — a Docker-based test matrix runs the suite against
   bash 3.2, 4.4, and 5.x to catch portability regressions before they ship.
 

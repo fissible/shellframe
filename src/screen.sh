@@ -14,18 +14,41 @@
 # Switch to the alternate screen buffer (a separate framebuffer with no
 # scrollback). This is what less, vim, top, etc. all do. The caller's terminal
 # content is hidden but preserved — shellframe_screen_exit restores it exactly.
+# The persistent tty fd. Consumers that already use fd 3 (log tee-ing is a
+# common deploy-script convention) set SHELLFRAME_TTY_FD before sourcing (#48).
+# Default stays 3 for compatibility; bash 4.1+ {var}> auto-allocation was
+# considered and skipped in favor of one predictable number per session.
+_SF_TTY_FD="${SHELLFRAME_TTY_FD:-3}"
+
+# Echo a currently-CLOSED fd number usable as a private save slot, skipping
+# the active tty fd. Falls back to fd 4 if every candidate is open (#48).
+_shellframe_pick_save_fd() {
+    local _n
+    for _n in 5 6 7 8 9; do
+        (( _n == _SF_TTY_FD )) && continue
+        # An OPEN fd passes write-or-read; a CLOSED one fails both. (The
+        # obvious `exec N>&-` probe is useless: close is idempotent and
+        # returns 0 for open and closed fds alike — review round 3.)
+        if ! { : >&"$_n" || : <&"$_n"; } 2>/dev/null; then
+            printf '%s' "$_n"
+            return 0
+        fi
+    done
+    printf '4'
+}
+
 shellframe_screen_enter() {
-    # Open a persistent fd to /dev/tty so widgets can write to >&3 instead
-    # of >/dev/tty (which opens+closes the file on every write and eventually
-    # exhausts file descriptors under rapid scrolling).
-    exec 3>/dev/tty
-    printf '\033[?1049h' >&3     # enable alternate screen buffer
-    printf '\033[H\033[3J\033[2J' >&3  # cursor home + clear screen + clear scrollback
+    # Open a persistent fd to /dev/tty so widgets can write to >&$_SF_TTY_FD
+    # instead of >/dev/tty (which opens+closes the file on every write and
+    # eventually exhausts file descriptors under rapid scrolling).
+    eval "exec ${_SF_TTY_FD}>/dev/tty"
+    printf '\033[?1049h' >&"$_SF_TTY_FD"     # enable alternate screen buffer
+    printf '\033[H\033[3J\033[2J' >&"$_SF_TTY_FD"  # cursor home + clear screen + clear scrollback
 }
 
 shellframe_screen_exit() {
-    printf '\033[?1049l' >&3  # disable alternate screen buffer (restores prior content)
-    exec 3>&-                  # close the persistent fd
+    printf '\033[?1049l' >&"$_SF_TTY_FD"  # disable alt screen (restores prior content)
+    eval "exec ${_SF_TTY_FD}>&-"           # close the persistent fd
 }
 
 # Clear the current screen and move cursor to top-left. Call at the start of
@@ -52,7 +75,7 @@ shellframe_screen_exit() {
 #     per changed row.  Standalone TUIs (alert, confirm, action-list, table)
 #     manage their own fd 3 lifecycle and are intentionally excluded.
 shellframe_screen_clear() {
-    printf '\033[H\033[3J\033[2J' >&3
+    printf '\033[H\033[3J\033[2J' >&"$_SF_TTY_FD"
     # \033[H   — cursor home (top-left)
     # \033[3J  — erase saved lines (clears scrollback so the scrollbar
     #            doesn't shrink on each redraw)
@@ -164,10 +187,10 @@ shellframe_screen_flush() {
         if [[ "$_curr" != "$_prev" ]]; then
             if [[ -z "$_curr" ]]; then
                 # Row was in PREV but nothing wrote to it — clear it
-                printf '\033[%d;1H\033[0m%*s' "$_row" "$_SF_FRAME_COLS" '' >&3
+                printf '\033[%d;1H\033[0m%*s' "$_row" "$_SF_FRAME_COLS" '' >&"$_SF_TTY_FD"
                 unset '_SF_ROW_PREV[$_row]'
             else
-                printf '\033[0m%s' "$_curr" >&3
+                printf '\033[0m%s' "$_curr" >&"$_SF_TTY_FD"
                 _SF_ROW_PREV[$_row]="$_curr"
             fi
         fi
@@ -177,8 +200,8 @@ shellframe_screen_flush() {
 
 # ── Cursor ───────────────────────────────────────────────────────────────────
 
-shellframe_cursor_hide() { printf '\033[?25l' >&3; }
-shellframe_cursor_show() { printf '\033[?25h' >&3; }
+shellframe_cursor_hide() { printf '\033[?25l' >&"$_SF_TTY_FD"; }
+shellframe_cursor_show() { printf '\033[?25h' >&"$_SF_TTY_FD"; }
 
 # ── Mouse reporting ───────────────────────────────────────────────────────────
 #
@@ -190,11 +213,11 @@ shellframe_cursor_show() { printf '\033[?25h' >&3; }
 # Requires \033[?1000h (X11 mouse tracking) to be enabled first; the two
 # sequences are sent together here for convenience.
 shellframe_mouse_enter() {
-    printf '\033[?1000h\033[?1006h' >&3
+    printf '\033[?1000h\033[?1006h' >&"$_SF_TTY_FD"
 }
 
 shellframe_mouse_exit() {
-    printf '\033[?1006l\033[?1000l' >&3
+    printf '\033[?1006l\033[?1000l' >&"$_SF_TTY_FD"
 }
 
 # ── Raw terminal mode ─────────────────────────────────────────────────────────
@@ -217,12 +240,12 @@ shellframe_raw_enter() {
     stty -echo -icanon -icrnl -ixon min 1 time 0 2>/dev/null
     # Enable bracketed paste mode: terminal wraps pasted text in
     # ESC[200~ ... ESC[201~ so the editor can batch-insert it instantly.
-    printf '\033[?2004h' >&3
+    printf '\033[?2004h' >&"$_SF_TTY_FD"
 }
 # -icrnl: stop the tty from translating CR (\r) → NL (\n) on input.
 # Without this, Enter arrives as \n, but bash's `read` strips trailing
 # newlines and returns an empty string — so \n can never be matched.
 shellframe_raw_exit()  {
-    printf '\033[?2004l' >&3  # disable bracketed paste mode
+    printf '\033[?2004l' >&"$_SF_TTY_FD"  # disable bracketed paste mode
     stty "$1" 2>/dev/null || true
 }

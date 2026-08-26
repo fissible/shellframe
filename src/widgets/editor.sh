@@ -1044,7 +1044,7 @@ shellframe_editor_render() {
     if (( _direct )); then
         printf -v _tmp '\033[%d;%dH' "$(( _top + _height - 1 ))" "$_left"
         _buf+="$_tmp"
-        printf '%s' "$_buf" >&3
+        printf '%s' "$_buf" >&"$_SF_TTY_FD"
     fi
 }
 
