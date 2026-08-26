@@ -403,12 +403,16 @@ _has_ms_clock() { [[ -n "$(_shellframe_now_ms)" ]]; }
 
 if _has_ms_clock; then
 ptyunit_test_begin "throttle #51: inside min interval -> defer"
-_SF_LAST_RENDER_MS=$(_shellframe_now_ms)
+# Frozen clock: two live now() calls can straddle the 33 ms window under
+# load, which flaked this test 6/20 in a loaded container (#63).
+_shellframe_now_ms() { printf '1000000000000'; }
+_SF_LAST_RENDER_MS=999999999990        # age 10 ms < MIN_INTERVAL
 if _shellframe_should_defer_render; then ptyunit_pass; else ptyunit_fail "expected defer"; fi
 
 ptyunit_test_begin "throttle #51: beyond max deferral window -> render"
-_SF_LAST_RENDER_MS=$(( $( _shellframe_now_ms ) - 1000 ))
+_SF_LAST_RENDER_MS=999999998000        # age 2000 ms > MAX_DEFER
 if _shellframe_should_defer_render; then ptyunit_fail "expected render"; else ptyunit_pass; fi
+unset -f _shellframe_now_ms
 else
 ptyunit_test_begin "throttle #51: no ms clock on this platform -> unthrottled (by design)"
 _SF_LAST_RENDER_MS=0

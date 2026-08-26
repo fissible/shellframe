@@ -92,14 +92,17 @@ assert_contains "$_eout" "shell-returned:1"
 assert_eq "0" "$_eof_rc"
 ptyunit_test_summary
 
-# ── #44 follow-up (review): idle survival then clean EOF quit ────────────────
+# ── #44b/#63: triggered stdin detach quits cleanly (deterministic) ───────────
+# The fifo/sleep design raced CI runners (~2/7 rc-124 on macOS 3.2): EOF
+# arrival depended on wall-clock holds. The fixture now detaches stdin from
+# inside an on_key handler, so key ordering — not elapsed time — decides.
 
-ptyunit_test_begin "shell-runtime #44b: survives idle ticks, quits on later EOF"
+ptyunit_test_begin "shell-runtime #44b: stdin detach quits cleanly with rc 1"
 _ie_rc=0
-# Generous timeout: slow runners must not kill the fixture mid-hold (rc 124)
-_ieout=$( PTY_TIMEOUT=25 python3 "$PTY_RUN" "$SHELLFRAME_DIR/tests/fixtures/shell-idle-eof.sh" ) || _ie_rc=$?
-assert_contains "$_ieout" "idle-shell-returned:1"
+_ieout=$( python3 "$PTY_RUN" "$SHELLFRAME_DIR/tests/fixtures/shell-eof-trigger.sh" $'E' 2>/dev/null ) || _ie_rc=$?
+assert_contains "$_ieout" "detached-shell-returned:1"
 assert_eq "0" "$_ie_rc"
+
 # ── #51: rapid event burst coalesces without losing the final state ──────────
 
 ptyunit_test_begin "shell-runtime #51: 40-key burst lands on clamped end state"
