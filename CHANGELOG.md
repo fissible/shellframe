@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/).
+## [0.7.0] - 2026-08-26
+
+### Added
+- Theming system (#53), platform docs (#58), v1/v2 ADR (#55) (#62)
+- Pager escape hatch (#56) + deterministic EOF test (#63) (#64)
 ## [0.6.0] - 2026-08-26
 
 ### Fixed
