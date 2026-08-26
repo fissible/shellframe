@@ -20,3 +20,21 @@ out=$(_pty q)
 assert_contains "$out" "Aborted."
 
 ptyunit_test_summary
+
+# ── #56: pager escape hatch ───────────────────────────────────────────────────
+
+ptyunit_test_begin "table #56: 'v' with PAGER=cat shows plain rows, table redraws intact"
+out=$( PAGER=cat python3 "$PTY_RUN" "$SCRIPT" v q 2>/dev/null )
+assert_contains "$out" "apple"                          # rows in pager dump
+assert_contains "$out" "↑/↓ move"                   # table chrome redrawn after pager
+
+ptyunit_test_begin "table #56: SHELLFRAME_DUMP=1 prints plain text to stdout, no TUI"
+dump=$( SHELLFRAME_DUMP=1 python3 "$PTY_RUN" "$SCRIPT" 2>/dev/null )
+assert_contains "$dump" "apple"
+if [[ "$dump" == *"Ctrl-D"* || "$dump" == *$'\033[?1049h'* ]]; then
+    ptyunit_fail "TUI chrome present in dump mode"
+else
+    ptyunit_pass
+fi
+
+ptyunit_test_summary

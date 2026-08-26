@@ -144,6 +144,15 @@ shellframe_list_render() {
 # ── shellframe_list_on_key ────────────────────────────────────────────────────
 
 shellframe_list_on_key() {
+    # v (#56): dump items to a temp file and ask the runtime to page them
+    if [[ "$1" == "v" ]]; then
+        local _pf
+        _pf=$(mktemp "${TMPDIR:-/tmp}/sf-dump.XXXXXX")
+        shellframe_dump_lines SHELLFRAME_LIST_ITEMS "" "$_pf"
+        SHELLFRAME_PAGER_FILE="$_pf"
+        return 4
+    fi
+
     local _key="$1"
     local _ctx="${SHELLFRAME_LIST_CTX:-list}"
 

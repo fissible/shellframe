@@ -690,6 +690,21 @@ shellframe_shell() {
                 local _rc=0
                 "${_prefix}_${_current}_${_focused}_on_key" "$_key" || _rc=$?
 
+                if (( _rc == 4 )); then
+                    # Pager escape hatch (#56): leave alt screen, restore the
+                    # pre-runtime tty, view, then rebuild everything.
+                    if [[ -n "${SHELLFRAME_PAGER_FILE:-}" ]]; then
+                        shellframe_pager_view "$SHELLFRAME_PAGER_FILE" "$_saved_stty"
+                        SHELLFRAME_PAGER_FILE=""
+                    fi
+                    shellframe_screen_enter
+                    shellframe_raw_enter
+                    shellframe_cursor_hide
+                    shellframe_screen_clear
+                    _shellframe_shell_draw "$_prefix" "$_current"
+                    continue
+                fi
+
                 if (( _rc == 0 )); then
                     # Widget handled the key.  Draw only if the widget (or its
                     # underlying module) called shellframe_shell_mark_dirty.

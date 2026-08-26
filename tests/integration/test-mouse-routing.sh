@@ -90,7 +90,6 @@ _eof_rc=0
 _eout=$( python3 "$PTY_RUN" "$SHELLFRAME_DIR/tests/fixtures/shell-eof.sh" ) || _eof_rc=$?
 assert_contains "$_eout" "shell-returned:1"
 assert_eq "0" "$_eof_rc"
-ptyunit_test_summary
 
 # ── #44b/#63: triggered stdin detach quits cleanly (deterministic) ───────────
 # The fifo/sleep design raced CI runners (~2/7 rc-124 on macOS 3.2): EOF
@@ -110,5 +109,13 @@ _burst=""
 for _i in $(seq 1 40); do _burst+=$'\x1b[B'; done   # 40 DOWN arrows, one write
 out=$(_pty "$_burst" ENTER)
 assert_contains "$out" "Selected: elderberry"
+
+
+# ── #56: v2 list pager round-trip ─────────────────────────────────────────────
+
+ptyunit_test_begin "shell-runtime #56: 'v' pages the list, runtime redraws after"
+out=$( PAGER=cat _pty v q 2>/dev/null )
+assert_contains "$out" "apple"                 # dumped list content
+assert_contains "$out" "No selection."         # runtime alive and redrawn post-pager
 
 ptyunit_test_summary

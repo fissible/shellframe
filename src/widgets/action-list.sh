@@ -69,6 +69,17 @@ _shellframe_al_default_draw_row() {
 #          3 = quit (q)
 _shellframe_action_list_on_key() {
     local _key="$1" _n="$2"
+
+    # v: open the full label list in ${PAGER:-less} (#56)
+    if [[ "$_key" == "v" ]]; then
+        local _pf
+        _pf=$(mktemp "${TMPDIR:-/tmp}/sf-dump.XXXXXX")
+        shellframe_dump_lines SHELLFRAME_AL_LABELS "" "$_pf"
+        shellframe_pager_view "$_pf" "$SHELLFRAME_AL_SAVED_STTY"
+        shellframe_raw_enter
+        shellframe_screen_enter
+        return 0
+    fi
     if   [[ "$_key" == "$SHELLFRAME_KEY_UP" ]]; then
         (( SHELLFRAME_AL_SELECTED > 0 )) && (( SHELLFRAME_AL_SELECTED-- )) || true
         return 0
@@ -89,6 +100,12 @@ _shellframe_action_list_on_key() {
 }
 
 shellframe_action_list() {
+    if shellframe_pager_requested; then
+        shellframe_dump_lines SHELLFRAME_AL_LABELS "" /dev/stdout
+        return 0
+    fi
+
+
     local _draw_row_fn="${1:-}"
     local _extra_key_fn="${2:-}"
     local _footer="${3:-↑/↓ move  Space/→ cycle  Enter confirm  q quit}"
