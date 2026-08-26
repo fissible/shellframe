@@ -38,30 +38,14 @@ SHELLFRAME_THEME="default"
 # constant becomes EMPTY — plain text, never raw SGR bytes (TERM=dumb,
 # cron, CI). Custom themes may choose otherwise; shipped themes do not.
 
-# Apply the default theme: ONE tput -S fork for all ten capabilities
-# (~9x cheaper than ten forks; this dominated library load time on 3.2).
-# The batch is validated by LINE COUNT — tools like busybox date exit 0
-# while silently degrading output, so anything short of exactly 10 lines
-# falls back to per-capability queries, which degrade to empty strings.
+# Apply the default theme via per-capability tput queries.
+#
+# Note (review round 2 verification): a batched `tput -S` call does NOT work
+# here — tput emits capability results consecutively with no separators, so
+# there is no reliable way to split them back apart, and a line-count guard
+# simply routes every load through the fallback. Ten forks cost ~10 ms of
+# one-time load; correctness and honest comments beat that win.
 _shellframe_theme_apply_default() {
-    local _caps _line
-    local -a _v=()
-    if _caps=$(printf 'bold\ndim\nsgr0\nrev\nsetaf 2\nsetaf 1\nsetaf 3\nsetaf 5\nsetaf 8\nsetaf 7\n' | tput -S 2>/dev/null) \
-       && [[ $(grep -c '' <<< "$_caps") -eq 10 ]]; then
-        while IFS= read -r _line; do _v+=("$_line"); done <<< "$_caps"
-        SHELLFRAME_BOLD="${_v[0]}"
-        SHELLFRAME_DIM="${_v[1]}"
-        SHELLFRAME_RESET="${_v[2]}"
-        SHELLFRAME_REVERSE="${_v[3]}"
-        SHELLFRAME_GREEN="${_v[4]}"
-        SHELLFRAME_RED="${_v[5]}"
-        SHELLFRAME_YELLOW="${_v[6]}"
-        SHELLFRAME_PURPLE="${_v[7]}"
-        SHELLFRAME_GRAY="${_v[8]}"
-        SHELLFRAME_WHITE="${_v[9]}"
-        return 0
-    fi
-    # Per-capability fallback for mixed-support terminals: empty on failure.
     SHELLFRAME_BOLD=$(tput bold     2>/dev/null || true)
     SHELLFRAME_DIM=$(tput dim       2>/dev/null || true)
     SHELLFRAME_RESET=$(tput sgr0    2>/dev/null || true)
